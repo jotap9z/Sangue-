@@ -10,53 +10,55 @@ fun AppNavigation() {
     // Controlador central que guarda o histórico de telas
     val navController = rememberNavController()
 
-    // 🔥 O aplicativo agora inicia obrigatoriamente pela tela de Login/Cadastro
-    NavHost(navController = navController, startDestination = "auth") {
+    // O aplicativo inicia pela Landing Page
+    NavHost(navController = navController, startDestination = "landing_page") {
 
         // ==========================================
         // 0. AUTENTICAÇÃO E CADASTRO
         // ==========================================
         composable("auth") {
-            AuthScreen {
-                // Após logar ou criar conta, vai para a Landing Page e limpa a pilha de login
-                navController.navigate("landing_page") {
-                    popUpTo("auth") { inclusive = true }
+            AuthScreen(
+                onLoginSuccess = { isHemocentro ->
+                    if (isHemocentro) {
+                        navController.navigate("hemo_home") {
+                            popUpTo("auth") { inclusive = true }
+                        }
+                    } else {
+                        navController.navigate("home") {
+                            popUpTo("auth") { inclusive = true }
+                        }
+                    }
                 }
-            }
-        }
-
-        // ==========================================
-        // 1. LANDING PAGE
-        // ==========================================
-        composable("landing_page") {
-            LandPageScreen(
-                onNavigateToHome = { navController.navigate("home") },
-                onNavigateToCheckin = { navController.navigate("checkin") },
-                onNavigateToEmergencia = { navController.navigate("emergencia") },
-                onNavigateToHistorico = { navController.navigate("historico") },
-                onNavigateToPerfil = {
-                    navController.navigate("perfil")
-                },
             )
         }
 
         // ==========================================
-        // 2. HOME DASHBOARD
+        // 1. LANDING PAGE (Início do Aplicativo)
+        // ==========================================
+        composable("landing_page") {
+            LandPageScreen(
+                onNavigateToLogin = { navController.navigate("auth") },
+                onNavigateToCheckin = { navController.navigate("checkin") },
+                onNavigateToEmergencia = { navController.navigate("emergencia") },
+                onNavigateToHistorico = { navController.navigate("historico") },
+                onNavigateToPerfil = { navController.navigate("perfil") }
+            )
+        }
+
+        // ==========================================
+        // 2. HOME DASHBOARD (Doador)
         // ==========================================
         composable("home") {
             HomeScreen(
-                onNavigateToInicio = { navController.popBackStack() }, // Volta para a Landing Page
-                onNavigateToVerificacao = { navController.navigate("posso_doar") }, // Botão Central
-                onNavigateToCheckin = { navController.navigate("checkin") },        // Footer: Agendar
-                onNavigateToEmergencia = { navController.navigate("emergencia") },  // Footer: Emergência
-                onNavigateToHistorico = { navController.navigate("historico") },    // Footer: Histórico
-                onNavigateToPerfil = { navController.navigate("perfil") },          // Footer: Perfil
-                onNavigateToEstoque = {
-                    navController.navigate("estoque")
-                }, // Botão Ação Rápida: Estoque
-            ) {
-                navController.navigate("hemocentros") // Botão Ação Rápida: Hemocentros Próximos
-            }
+                onNavigateToInicio = { /* Já está na home */ },
+                onNavigateToVerificacao = { navController.navigate("posso_doar") },
+                onNavigateToCheckin = { navController.navigate("checkin") },
+                onNavigateToEmergencia = { navController.navigate("emergencia") },
+                onNavigateToHistorico = { navController.navigate("historico") },
+                onNavigateToPerfil = { navController.navigate("perfil") },
+                onNavigateToEstoque = { navController.navigate("estoque") },
+                onNavigateToHemocentros = { navController.navigate("hemocentros") },
+            )
         }
 
         // ==========================================
@@ -67,27 +69,24 @@ fun AppNavigation() {
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateHome = {
                     navController.navigate("home") {
-                        popUpTo("home") { inclusive = true } // Limpa a pilha e vai pra home
+                        popUpTo("home") { inclusive = true }
                     }
                 },
             )
         }
 
         // ==========================================
-        // 4. PERFIL (Com a Carteira, Edição, Configurações, etc.)
+        // 4. PERFIL
         // ==========================================
         composable("perfil") {
             PerfilScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onLogout = {
-                    // Limpa toda a pilha do aplicativo (popUpTo(0)) e volta pro Login
-                    navController.navigate("auth") {
-                        popUpTo(0)
+                    navController.navigate("landing_page") {
+                        popUpTo(0) // Limpa tudo e volta para a tela inicial
                     }
                 },
-                onNavigateToTriagem = {
-                    navController.navigate("posso_doar")
-                }, // Botão da central de ajuda
+                onNavigateToTriagem = { navController.navigate("posso_doar") }
             )
         }
 
@@ -95,9 +94,7 @@ fun AppNavigation() {
         // 5. CONQUISTAS
         // ==========================================
         composable("conquistas") {
-            ConquistasScreen {
-                navController.popBackStack()
-            }
+            ConquistasScreen { navController.popBackStack() }
         }
 
         // ==========================================
@@ -106,21 +103,17 @@ fun AppNavigation() {
         composable("posso_doar") {
             PossoDoarScreen(
                 onNavigateToResultado = { navController.navigate("resultado") },
-            ) {
-                navController.popBackStack()
-            }
+            ) { navController.popBackStack() }
         }
 
         // ==========================================
-        // 7. RESULTADO (Apto a doar)
+        // 7. RESULTADO (Apto)
         // ==========================================
         composable("resultado") {
             ResultadoScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToAgendamento = { navController.navigate("agendamento") },
-            ) {
-                navController.navigate("hemocentros")
-            }
+            ) { navController.navigate("hemocentros") }
         }
 
         // ==========================================
@@ -130,29 +123,26 @@ fun AppNavigation() {
             ResultadoNegativoScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateHome = {
-                    navController.navigate("landing_page") {
-                        popUpTo("landing_page") { inclusive = true }
+                    navController.navigate("home") {
+                        popUpTo("home") { inclusive = true }
                     }
                 },
             )
         }
 
         // ==========================================
-        // 9. AGENDAMENTO (3 Etapas)
+        // 9. AGENDAMENTO
         // ==========================================
         composable("agendamento") {
             AgendamentoScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateHome = {
-                    navController.navigate("landing_page") {
-                        popUpTo("landing_page") { inclusive = true }
+                    navController.navigate("home") {
+                        popUpTo("home") { inclusive = true }
                     }
                 },
                 onNavigateToCheckin = {
-                    // Direciona para o Check-in e mantém a Landing Page no fundo
-                    navController.navigate("checkin") {
-                        popUpTo("landing_page")
-                    }
+                    navController.navigate("checkin") { popUpTo("home") }
                 },
             )
         }
@@ -163,18 +153,14 @@ fun AppNavigation() {
         composable("emergencia") {
             EmergenciaScreen(
                 onNavigateBack = { navController.popBackStack() },
-            ) {
-                navController.navigate("agendamento")
-            }
+            ) { navController.navigate("agendamento") }
         }
 
         // ==========================================
         // 11. HISTÓRICO
         // ==========================================
         composable("historico") {
-            HistoricoScreen {
-                navController.popBackStack()
-            }
+            HistoricoScreen { navController.popBackStack() }
         }
 
         // ==========================================
@@ -183,9 +169,7 @@ fun AppNavigation() {
         composable("estoque") {
             EstoqueScreen(
                 onNavigateBack = { navController.popBackStack() },
-            ) {
-                navController.navigate("posso_doar")
-            }
+            ) { navController.navigate("posso_doar") }
         }
 
         // ==========================================
@@ -194,9 +178,79 @@ fun AppNavigation() {
         composable("hemocentros") {
             HemocentrosScreen(
                 onNavigateBack = { navController.popBackStack() },
-            ) {
-                navController.navigate("posso_doar")
-            }
+            ) { navController.navigate("posso_doar") }
+        }
+
+        // ==========================================
+        // 14. HOME HEMOCENTRO
+        // ==========================================
+        composable("hemo_home") {
+            HemoHomeScreen(
+                onNavigateToInicio = { /* Já está na home do hemo */ },
+                onNavigateToAgenda = { navController.navigate("hemo_agenda") },
+                onNavigateToEstoque = { navController.navigate("hemo_estoque") },
+                onNavigateToChat = { navController.navigate("hemo_chat") },
+                onNavigateToMais = { navController.navigate("hemo_mais") },
+                onNavigateToCriarChamado = { navController.navigate("hemo_estoque") }
+            )
+        }
+
+        // ==========================================
+        // 15. TELAS DO HEMOCENTRO
+        // ==========================================
+        composable("hemo_agenda") {
+            HemoAgendaScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToInicio = { navController.navigate("hemo_home") { popUpTo("hemo_home") } },
+                onNavigateToAgenda = { /* Já está aqui */ },
+                onNavigateToEstoque = { navController.navigate("hemo_estoque") },
+                onNavigateToChat = { navController.navigate("hemo_chat") },
+                onNavigateToMais = { navController.navigate("hemo_mais") },
+                onNavigateToEscanear = { navController.navigate("hemo_scanner") }
+            )
+        }
+
+        composable("hemo_scanner") {
+            HemoScannerScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable("hemo_estoque") {
+            HemoEstoqueScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToInicio = { navController.navigate("hemo_home") { popUpTo("hemo_home") } },
+                onNavigateToAgenda = { navController.navigate("hemo_agenda") },
+                onNavigateToEstoque = { /* Já está aqui */ },
+                onNavigateToChat = { navController.navigate("hemo_chat") },
+                onNavigateToMais = { navController.navigate("hemo_mais") }
+            )
+        }
+
+        composable("hemo_chat") {
+            HemoChatScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToInicio = { navController.navigate("hemo_home") { popUpTo("hemo_home") } },
+                onNavigateToAgenda = { navController.navigate("hemo_agenda") },
+                onNavigateToEstoque = { navController.navigate("hemo_estoque") },
+                onNavigateToChat = { /* Já está no chat */ },
+                onNavigateToMais = { navController.navigate("hemo_mais") }
+            )
+        }
+
+        composable("hemo_mais") {
+            HemoMaisScreen(
+                onNavigateToInicio = { navController.navigate("hemo_home") { popUpTo("hemo_home") } },
+                onNavigateToAgenda = { navController.navigate("hemo_agenda") },
+                onNavigateToEstoque = { navController.navigate("hemo_estoque") },
+                onNavigateToChat = { navController.navigate("hemo_chat") },
+                onNavigateToMais = { /* Já está aqui */ },
+                onLogout = {
+                    navController.navigate("landing_page") {
+                        popUpTo(0) // Limpa tudo e volta para a tela inicial
+                    }
+                }
+            )
         }
     }
 }

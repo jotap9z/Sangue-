@@ -6,8 +6,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -23,12 +21,12 @@ import androidx.compose.ui.unit.sp
 @SuppressLint("Range")
 @Composable
 fun LandPageScreen(
-    // 🔥 PARÂMETROS DE NAVEGAÇÃO ADICIONADOS AQUI:
-    onNavigateToHome: () -> Unit = {},       // Vai para a tela Home principal
-    onNavigateToCheckin: () -> Unit = {},    // Footer: Agendar
+    onNavigateToCheckin: () -> Unit = {},    // Footer: Check-in
     onNavigateToEmergencia: () -> Unit = {}, // Footer: Emergência
     onNavigateToHistorico: () -> Unit = {},  // Footer: Histórico
     onNavigateToPerfil: () -> Unit = {},     // Footer: Perfil
+    onNavigateToNotificacoes: () -> Unit = {}, // Notificações (se usar depois)
+    onNavigateToLogin: () -> Unit = {},      // Botão Principal: Leva para o Login
 ) {
     // Definindo as cores exatas da imagem
     val sangueRed = Color(0xFFE21C2C)
@@ -47,7 +45,7 @@ fun LandPageScreen(
             ) {
                 NavigationBarItem(
                     selected = true,
-                    onClick = { /* Já estamos na Landing Page, não faz nada (ou pode ir pra Home) */ },
+                    onClick = { /* Já estamos na Landing Page, Início */ },
                     icon = {
                         Icon(painter = painterResource(id = R.drawable.home), contentDescription = "Início", modifier = Modifier.size(24.dp))
                     },
@@ -121,7 +119,7 @@ fun LandPageScreen(
                     ),
                 )
             }
-        }
+        },
     ) { paddingValues ->
 
         Column(
@@ -131,7 +129,7 @@ fun LandPageScreen(
                 .verticalScroll(rememberScrollState()),
         ) {
 
-            // 1. CABEÇALHO (Logo Sangue+ e Sino)
+            // 1. CABEÇALHO (Logo Sangue+)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -157,9 +155,6 @@ fun LandPageScreen(
                         modifier = Modifier.offset(x = (-8).dp),
                     )
                 }
-                IconButton(onClick = { /* Notificações */ }) {
-                    Icon(imageVector = Icons.Outlined.Notifications, contentDescription = "Notificações", tint = textDark, modifier = Modifier.size(28.dp))
-                }
             }
 
             // 2. SESSÃO PRINCIPAL
@@ -167,7 +162,7 @@ fun LandPageScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(300.dp)
-                    .padding(horizontal = 24.dp)
+                    .padding(horizontal = 24.dp),
             ) {
                 // Bolsa de Sangue 3D
                 Box(
@@ -179,7 +174,7 @@ fun LandPageScreen(
                         contentDescription = "Bolsa de Sangue 3D",
                         contentScale = ContentScale.Fit,
                         alignment = Alignment.CenterEnd,
-                        modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().scale(2.5f).offset(x = 15.dp)
+                        modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().scale(2.5f).offset(x = 15.dp),
                     )
                 }
 
@@ -192,16 +187,14 @@ fun LandPageScreen(
 
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    // 🔥 Botão "Quero doar" que redireciona para a Home completa!
                     Button(
-                        onClick = onNavigateToHome,
+                        onClick = onNavigateToLogin,
                         modifier = Modifier.fillMaxWidth().height(52.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = sangueRed),
                         shape = RoundedCornerShape(50),
                     ) {
-                        Text("Quero doar", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Login", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                     }
-
                 }
             }
 

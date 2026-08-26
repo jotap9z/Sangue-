@@ -12,7 +12,7 @@ class MainActivity : ComponentActivity() {
             // 1. Chama o nosso Tema configurado
             SangueMaisTheme {
                 // 2. Chama a nossa Tela
-                AppNavigation ()
+                AppNavigation()
             }
         }
     }

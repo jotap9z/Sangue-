@@ -45,7 +45,7 @@ data class NotificacaoItem(
     val tempo: String,
     val lida: Boolean,
     val icone: ImageVector,
-    val corIcone: Color
+    val corIcone: Color,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -58,7 +58,7 @@ fun HomeScreen(
     onNavigateToHistorico: () -> Unit = {},
     onNavigateToPerfil: () -> Unit = {},
     onNavigateToEstoque: () -> Unit = {},
-    onNavigateToHemocentros: () -> Unit = {}
+    onNavigateToHemocentros: () -> Unit = {},
 ) {
     val sangueRed = Color(0xFFE21C2C)
     val textDark = Color(0xFF1E293B)
@@ -73,17 +73,17 @@ fun HomeScreen(
     val shareSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val notificationsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    var showShareSheet by remember { mutableStateOf(false) }
-    var showNotificationsSheet by remember { mutableStateOf(false) }
+    var showShareSheet by remember { mutableStateOf(value = false) }
+    var showNotificationsSheet by remember { mutableStateOf(value = false) }
 
     val mensagemConvite = "Ei! Venha salvar vidas comigo no Sangue+. Baixe o app, encontre hemocentros próximos e faça a diferença!"
 
     // Lista simulada de notificações
     val notificacoes = listOf(
-        NotificacaoItem("Agendamento confirmado", "Sua doação amanhã às 09:00 está confirmada.", "Há 2 horas", false, Icons.Outlined.CheckCircle, Color(0xFF22C55E)),
-        NotificacaoItem("Urgência: Sangue O-", "Hemocentros próximos estão com estoque crítico.", "Ontem", false, Icons.Outlined.WarningAmber, sangueRed),
-        NotificacaoItem("Nova conquista!", "Você desbloqueou a medalha 'Doador Iniciante'.", "Há 3 dias", true, Icons.Outlined.EmojiEvents, Color(0xFFF59E0B)),
-        NotificacaoItem("Resultado disponível", "Os exames da sua última doação já podem ser acessados.", "Semana passada", true, Icons.Outlined.Description, Color(0xFF3B82F6))
+        NotificacaoItem("Agendamento confirmado", "Sua doação amanhã às 09:00 está confirmada.", "Há 2 horas", lida = false, Icons.Outlined.CheckCircle, Color(0xFF22C55E)),
+        NotificacaoItem("Urgência: Sangue O-", "Hemocentros próximos estão com estoque crítico.", "Ontem", lida = false, Icons.Outlined.WarningAmber, sangueRed),
+        NotificacaoItem("Nova conquista!", "Você desbloqueou a medalha 'Doador Iniciante'.", "Há 3 dias", lida = true, Icons.Outlined.EmojiEvents, Color(0xFFF59E0B)),
+        NotificacaoItem("Resultado disponível", "Os exames da sua última doação já podem ser acessados.", "Semana passada", lida = true, Icons.Outlined.Description, Color(0xFF3B82F6)),
     )
 
     Scaffold(
@@ -96,7 +96,7 @@ fun HomeScreen(
                 NavigationBarItem(selected = false, onClick = onNavigateToHistorico, icon = { Icon(painterResource(R.drawable.historico), "Histórico", modifier = Modifier.size(24.dp)) }, label = { Text("Histórico", fontSize = 10.sp) }, colors = NavigationBarItemDefaults.colors(selectedIconColor = sangueRed, selectedTextColor = sangueRed, unselectedIconColor = textGray, unselectedTextColor = textGray, indicatorColor = Color.Transparent))
                 NavigationBarItem(selected = false, onClick = onNavigateToPerfil, icon = { Icon(painterResource(R.drawable.icone_perfil), "Perfil", modifier = Modifier.size(24.dp)) }, label = { Text("Perfil", fontSize = 10.sp) }, colors = NavigationBarItemDefaults.colors(selectedIconColor = sangueRed, selectedTextColor = sangueRed, unselectedIconColor = textGray, unselectedTextColor = textGray, indicatorColor = Color.Transparent))
             }
-        }
+        },
     ) { paddingValues ->
         Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
             Box(modifier = Modifier.fillMaxWidth().height(500.dp).background(Brush.verticalGradient(listOf(sangueRed, Color.White))))
@@ -116,7 +116,7 @@ fun HomeScreen(
                                 .clip(CircleShape)
                                 .clickable { showNotificationsSheet = true }
                                 .padding(8.dp), // Aumenta a área de clique para facilitar o toque
-                            contentAlignment = Alignment.Center
+                            contentAlignment = Alignment.Center,
                         ) {
                             Icon(Icons.Outlined.Notifications, "Notificações", tint = Color.White, modifier = Modifier.size(28.dp))
                             // Bolinha indicando notificação nova
@@ -146,7 +146,7 @@ fun HomeScreen(
                 Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                     AcaoRapidaItem(icon = Icons.Outlined.LocationOn, texto = "Hemocentros\npróximos", onClick = onNavigateToHemocentros)
                     AcaoRapidaItem(iconRes = R.drawable.estoque, texto = "Estoque de\nsangue", onClick = onNavigateToEstoque)
-                    AcaoRapidaItem(iconRes = R.drawable.convide, texto = "Convide um\namigo", onClick = { showShareSheet = true })
+                    AcaoRapidaItem(iconRes = R.drawable.convide, texto = "Convide um\namigo") { showShareSheet = true }
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -173,7 +173,7 @@ fun HomeScreen(
                 onDismissRequest = { showNotificationsSheet = false },
                 sheetState = notificationsSheetState,
                 containerColor = Color.White,
-                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
             ) {
                 Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp)) {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -222,17 +222,17 @@ fun HomeScreen(
                 onDismissRequest = { showShareSheet = false },
                 sheetState = shareSheetState,
                 containerColor = Color.White,
-                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
             ) {
                 Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("Convide um amigo", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = textDark, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Start)
                     Spacer(modifier = Modifier.height(24.dp))
 
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        ShareAppButtonHome("WhatsApp", R.drawable.whatsappicon, null, Color(0xFFDCFCE7)) { shareToAppHome(context, "com.whatsapp", mensagemConvite) }
-                        ShareAppButtonHome("Instagram", R.drawable.instaicon, null, Color(0xFFFCE7F3)) { shareToAppHome(context, "com.instagram.android", mensagemConvite) }
-                        ShareAppButtonHome("Mensagens", null, Icons.AutoMirrored.Outlined.Chat, Color(0xFFDBEAFE), Color(0xFF3B82F6)) { sendSmsHome(context, mensagemConvite) }
-                        ShareAppButtonHome("Copiar link", null, Icons.Outlined.ContentCopy, Color(0xFFF1F5F9), Color(0xFF64748B)) { copyToClipboardHome(context, mensagemConvite) }
+                        ShareAppButtonHome("WhatsApp", R.drawable.whatsappicon, null, Color(0xFFDCFCE7)) { shareToAppHome(context, "com.whatsapp") }
+                        ShareAppButtonHome("Instagram", R.drawable.instaicon, null, Color(0xFFFCE7F3)) { shareToAppHome(context, "com.instagram.android") }
+                        ShareAppButtonHome("Mensagens", null, Icons.AutoMirrored.Outlined.Chat, Color(0xFFDBEAFE), Color(0xFF3B82F6)) { sendSmsHome(context) }
+                        ShareAppButtonHome("Copiar link", null, Icons.Outlined.ContentCopy, Color(0xFFF1F5F9), Color(0xFF64748B)) { copyToClipboardHome(context) }
                     }
 
                     Spacer(modifier = Modifier.height(24.dp))
@@ -272,22 +272,25 @@ private fun ShareAppButtonHome(name: String, iconRes: Int? = null, imageVector: 
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { onClick() }) {
         Box(modifier = Modifier.size(60.dp).background(outerColor, CircleShape), contentAlignment = Alignment.Center) {
             if (iconRes != null) { Image(painter = painterResource(id = iconRes), contentDescription = name, modifier = Modifier.size(32.dp)) }
-            else if (imageVector != null) { Icon(imageVector = imageVector, contentDescription = name, tint = iconTint, modifier = Modifier.size(28.dp)) }
+            else imageVector?.let { Icon(imageVector = it, contentDescription = name, tint = iconTint, modifier = Modifier.size(28.dp)) }
         }
         Spacer(modifier = Modifier.height(8.dp))
         Text(text = name, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E293B))
     }
 }
 
-private fun shareToAppHome(context: Context, packageName: String, text: String) {
+private fun shareToAppHome(context: Context, packageName: String) {
+    val text = "Ei! Venha salvar vidas comigo no Sangue+. Baixe o app, encontre hemocentros próximos e faça a diferença!"
     val intent = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, text); setPackage(packageName) }
     try { context.startActivity(intent) } catch (_: Exception) { context.startActivity(Intent.createChooser(intent, "Compartilhar via")) }
 }
-private fun sendSmsHome(context: Context, text: String) {
+private fun sendSmsHome(context: Context) {
+    val text = "Ei! Venha salvar vidas comigo no Sangue+. Baixe o app, encontre hemocentros próximos e faça a diferença!"
     val intent = Intent(Intent.ACTION_VIEW).apply { data = "sms:".toUri(); putExtra("sms_body", text) }
     try { context.startActivity(intent) } catch (_: Exception) { Toast.makeText(context, "App não encontrado", Toast.LENGTH_SHORT).show() }
 }
-private fun copyToClipboardHome(context: Context, text: String) {
+private fun copyToClipboardHome(context: Context) {
+    val text = "Ei! Venha salvar vidas comigo no Sangue+. Baixe o app, encontre hemocentros próximos e faça a diferença!"
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     clipboard.setPrimaryClip(ClipData.newPlainText("Link", text))
     Toast.makeText(context, "Copiado!", Toast.LENGTH_SHORT).show()
