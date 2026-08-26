@@ -67,7 +67,7 @@ fun AgendamentoScreen(
                             2 -> etapaAtual = 1
                             1 -> onNavigateBack()
                         }
-                    }
+                    },
                 ) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar", tint = textDark)
                 }
@@ -142,7 +142,7 @@ fun AgendamentoScreen(
                     }
                 }
             }
-        }
+        },
     ) { padding ->
         Column(
             modifier = Modifier

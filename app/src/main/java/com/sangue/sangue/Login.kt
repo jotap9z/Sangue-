@@ -12,6 +12,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -37,7 +39,7 @@ enum class AuthStep {
 
 @Composable
 fun AuthScreen(
-    onNavigateToLanding: () -> Unit = {}, // Redireciona para a Landing Page
+    onLoginSuccess: (Boolean) -> Unit = {}, // Redireciona dependendo do tipo de login
 ) {
     var currentStep by remember { mutableStateOf(AuthStep.LOGIN) }
 
@@ -56,11 +58,13 @@ fun AuthScreen(
 
     when (currentStep) {
         AuthStep.LOGIN -> LoginView(
-            onEntrar = onNavigateToLanding,
+            onEntrar = { onLoginSuccess(false) },
             onCriarConta = { currentStep = AuthStep.CADASTRO_DADOS },
         ) {
-            currentStep = AuthStep.HEMO_DADOS
+            //  MUDANÇA AQUI: Passamos 'true' indicando que o login foi de Hemocentro
+            onLoginSuccess(true)
         }
+
         // Telas do Doador
         AuthStep.CADASTRO_DADOS -> CadastroDadosView(onBack = { currentStep = AuthStep.LOGIN }) {
             currentStep = AuthStep.CADASTRO_SANGUE
@@ -68,13 +72,13 @@ fun AuthScreen(
         AuthStep.CADASTRO_SANGUE -> CadastroSangueView(onBack = { currentStep = AuthStep.CADASTRO_DADOS }) {
             currentStep = AuthStep.CADASTRO_SUCESSO
         }
-        AuthStep.CADASTRO_SUCESSO -> CadastroSucessoView(onComecar = onNavigateToLanding)
+        AuthStep.CADASTRO_SUCESSO -> CadastroSucessoView { onLoginSuccess(false) }
 
-        // Telas do Hemocentro
-        AuthStep.HEMO_DADOS -> CadastroHemoDadosView(onBack = { currentStep = AuthStep.LOGIN }, onContinuar = { currentStep = AuthStep.HEMO_RESPONSAVEL })
-        AuthStep.HEMO_RESPONSAVEL -> CadastroHemoResponsavelView(onBack = { currentStep = AuthStep.HEMO_DADOS }, onContinuar = { currentStep = AuthStep.HEMO_VERIFICACAO })
-        AuthStep.HEMO_VERIFICACAO -> CadastroHemoVerificacaoView(onBack = { currentStep = AuthStep.HEMO_RESPONSAVEL }, onEnviar = { currentStep = AuthStep.HEMO_SUCESSO })
-        AuthStep.HEMO_SUCESSO -> CadastroHemoSucessoView(onVoltarLogin = { currentStep = AuthStep.LOGIN }) // Volta pro login para entrar
+        // Telas do Hemocentro (Ficarão inativas/escondidas por enquanto, já que o botão vai direto pro login)
+        AuthStep.HEMO_DADOS -> CadastroHemoDadosView(onBack = { currentStep = AuthStep.LOGIN }) { currentStep = AuthStep.HEMO_RESPONSAVEL }
+        AuthStep.HEMO_RESPONSAVEL -> CadastroHemoResponsavelView(onBack = { currentStep = AuthStep.HEMO_DADOS }) { currentStep = AuthStep.HEMO_VERIFICACAO }
+        AuthStep.HEMO_VERIFICACAO -> CadastroHemoVerificacaoView(onBack = { currentStep = AuthStep.HEMO_RESPONSAVEL }) { currentStep = AuthStep.HEMO_SUCESSO }
+        AuthStep.HEMO_SUCESSO -> CadastroHemoSucessoView { currentStep = AuthStep.LOGIN }
     }
 }
 
@@ -89,82 +93,169 @@ fun LoginView(onEntrar: () -> Unit, onCriarConta: () -> Unit, onCadastroHemocent
 
     var email by remember { mutableStateOf("") }
     var senha by remember { mutableStateOf("") }
-    var showPassword by remember { mutableStateOf(value = false) }
 
-    Column(modifier = Modifier.fillMaxSize().background(Color.White).padding(24.dp).verticalScroll(rememberScrollState())) {
-        Spacer(modifier = Modifier.height(40.dp))
+    // 🔥 Estados para o Card/Modal de Recuperação de Senha
+    var showRecuperarSenhaModal by remember { mutableStateOf(false) }
+    var showSucessoModal by remember { mutableStateOf(false) }
+    var emailRecuperacao by remember { mutableStateOf("") }
 
-        Text("Sangue+", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = sangueRed)
-        Spacer(modifier = Modifier.height(16.dp))
-        Text("Entrar na sua conta", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = textDark)
-        Spacer(modifier = Modifier.height(8.dp))
-        Text("Acesse seus agendamentos, histórico e carteira do doador.", fontSize = 14.sp, color = textGray)
+    // Usando Box para sobrepor o Modal
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize().background(Color.White).padding(24.dp).verticalScroll(rememberScrollState())) {
+            Spacer(modifier = Modifier.height(40.dp))
 
-        Spacer(modifier = Modifier.height(32.dp))
+            Text("Sangue+", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = sangueRed)
+            Spacer(modifier = Modifier.height(16.dp))
+            Text("Entrar na sua conta", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = textDark)
+            Spacer(modifier = Modifier.height(8.dp))
+            Text("Acesse seus agendamentos, histórico e carteira do doador.", fontSize = 14.sp, color = textGray)
 
-        FormTextField("E-mail", "ana@email.com", value = email, onValueChange = { email = it })
+            Spacer(modifier = Modifier.height(32.dp))
 
-        Text("Senha", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = textGray)
-        Spacer(modifier = Modifier.height(8.dp))
-        OutlinedTextField(
-            value = senha, onValueChange = { senha = it }, placeholder = { Text("••••••••", color = Color(0xFF94A3B8)) },
-            visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
-            trailingIcon = { Text(text = if (showPassword) "Ocultar" else "Mostrar", color = textGray, fontSize = 12.sp, modifier = Modifier.clickable { showPassword = !showPassword }.padding(end = 16.dp)) },
-            modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                unfocusedBorderColor = Color(0xFFE2E8F0),
-                focusedBorderColor = sangueRed,
-            ),
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text("Esqueci minha senha", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = sangueRed, modifier = Modifier.align(Alignment.End).clickable { })
+            FormTextField("E-mail", "ana@email.com", isRequired = true, value = email) { email = it }
+            FormTextField("Senha", "••••••••", isRequired = true, isPassword = true, value = senha) { senha = it }
 
-        Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                "Esqueci minha senha",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = sangueRed,
+                modifier = Modifier
+                    .align(Alignment.End)
+                    .clickable { showRecuperarSenhaModal = true } // 🔥 Aciona o Card de recuperação
+                    .padding(vertical = 4.dp)
+            )
 
-        Button(onClick = onEntrar, modifier = Modifier.fillMaxWidth().height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = sangueRed), shape = RoundedCornerShape(16.dp)) {
-            Text("Entrar", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-        }
+            Spacer(modifier = Modifier.height(32.dp))
 
-        Spacer(modifier = Modifier.height(24.dp))
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            HorizontalDivider(modifier = Modifier.weight(1f), color = Color(0xFFE2E8F0))
-            Text(" ou ", color = textGray, fontSize = 14.sp, modifier = Modifier.padding(horizontal = 8.dp))
-            HorizontalDivider(modifier = Modifier.weight(1f), color = Color(0xFFE2E8F0))
-        }
-        Spacer(modifier = Modifier.height(24.dp))
+            Button(
+                onClick = onEntrar,
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = sangueRed),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Text("Entrar", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            }
 
-        OutlinedButton(onClick = onCriarConta, modifier = Modifier.fillMaxWidth().height(56.dp), border = BorderStroke(1.dp, Color(0xFFFECACA)), shape = RoundedCornerShape(16.dp)) {
-            Text("Criar conta", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = sangueRed)
-        }
+            Spacer(modifier = Modifier.height(24.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                HorizontalDivider(modifier = Modifier.weight(1f), color = Color(0xFFE2E8F0))
+                Text(" ou ", color = textGray, fontSize = 14.sp, modifier = Modifier.padding(horizontal = 8.dp))
+                HorizontalDivider(modifier = Modifier.weight(1f), color = Color(0xFFE2E8F0))
+            }
+            Spacer(modifier = Modifier.height(24.dp))
 
-        Spacer(modifier = Modifier.height(32.dp))
+            OutlinedButton(onClick = onCriarConta, modifier = Modifier.fillMaxWidth().height(56.dp), border = BorderStroke(1.dp, Color(0xFFFECACA)), shape = RoundedCornerShape(16.dp)) {
+                Text("Criar conta", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = sangueRed)
+            }
 
-        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2)), border = BorderStroke(1.dp, Color(0xFFFECACA)), shape = RoundedCornerShape(16.dp)) {
-            Column(modifier = Modifier.padding(20.dp)) {
-                Text("Você representa um hemocentro?", fontWeight = FontWeight.Bold, color = textDark)
-                Spacer(modifier = Modifier.height(4.dp))
-                Text("Acesse a área institucional para gerenciar estoque, agendamentos e chamados.", fontSize = 12.sp, color = textGray)
-                Spacer(modifier = Modifier.height(16.dp))
-                OutlinedButton(
-                    onClick = onCadastroHemocentro, // 🔥 Redireciona para o cadastro do Hemocentro
-                    modifier = Modifier.fillMaxWidth().height(48.dp),
-                    border = BorderStroke(1.dp, Color(0xFFFECACA)),
-                    colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White),
-                    shape = RoundedCornerShape(12.dp),
-                ) {
-                    Text("Acessar área do hemocentro", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = sangueRed)
+            Spacer(modifier = Modifier.height(32.dp))
+
+            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2)), border = BorderStroke(1.dp, Color(0xFFFECACA)), shape = RoundedCornerShape(16.dp)) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Text("Você representa um hemocentro?", fontWeight = FontWeight.Bold, color = textDark)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text("Acesse a área institucional para gerenciar estoque, agendamentos e chamados.", fontSize = 12.sp, color = textGray)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedButton(
+                        onClick = onCadastroHemocentro,
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        border = BorderStroke(1.dp, Color(0xFFFECACA)),
+                        colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White),
+                        shape = RoundedCornerShape(12.dp),
+                    ) {
+                        Text("Acessar área do hemocentro", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = sangueRed)
+                    }
                 }
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Text("Ao continuar, você concorda com nossos Termos e Privacidade.", fontSize = 11.sp, color = textGray, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+            Spacer(modifier = Modifier.height(24.dp))
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-        Text("Ao continuar, você concorda com nossos Termos e Privacidade.", fontSize = 11.sp, color = textGray, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
-        Spacer(modifier = Modifier.height(24.dp))
+        // 🔥 MODAL: INFORMAR E-MAIL PARA RECUPERAÇÃO
+        if (showRecuperarSenhaModal) {
+            AlertDialog(
+                onDismissRequest = { showRecuperarSenhaModal = false },
+                containerColor = Color.White,
+                shape = RoundedCornerShape(24.dp),
+                title = {
+                    Text("Recuperar senha", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = textDark, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+                },
+                text = {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Text("Digite o e-mail associado à sua conta e enviaremos um link para redefinir sua senha.", fontSize = 14.sp, color = textGray, textAlign = TextAlign.Center)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        FormTextField("Seu e-mail", "ex: ana@email.com", isRequired = false, value = emailRecuperacao) { emailRecuperacao = it }
+                    }
+                },
+                confirmButton = {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Button(
+                            onClick = {
+                                if (emailRecuperacao.isNotBlank()) {
+                                    showRecuperarSenhaModal = false
+                                    showSucessoModal = true
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = sangueRed),
+                            shape = RoundedCornerShape(12.dp),
+                            enabled = emailRecuperacao.isNotBlank()
+                        ) {
+                            Text("Enviar link", fontWeight = FontWeight.Bold, color = Color.White)
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = { showRecuperarSenhaModal = false },
+                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text("Cancelar", color = textDark, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            )
+        }
+
+        // 🔥 MODAL: SUCESSO NO ENVIO DO E-MAIL
+        if (showSucessoModal) {
+            AlertDialog(
+                onDismissRequest = { showSucessoModal = false },
+                containerColor = Color.White,
+                shape = RoundedCornerShape(24.dp),
+                title = {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                        Box(modifier = Modifier.size(64.dp).background(Color(0xFFDCFCE7), CircleShape), contentAlignment = Alignment.Center) {
+                            Icon(Icons.Default.Check, contentDescription = null, tint = Color(0xFF16A34A), modifier = Modifier.size(32.dp))
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text("E-mail enviado!", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = textDark, textAlign = TextAlign.Center)
+                    }
+                },
+                text = {
+                    Text("As instruções de recuperação foram enviadas para:\n$emailRecuperacao\n\nVerifique sua caixa de entrada.", fontSize = 14.sp, color = textGray, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+                },
+                confirmButton = {
+                    Button(
+                        onClick = { showSucessoModal = false; emailRecuperacao = "" },
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = sangueRed),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("Voltar para o login", fontWeight = FontWeight.Bold, color = Color.White)
+                    }
+                }
+            )
+        }
     }
 }
 
 // ==========================================
-// TELAS DO HEMOCENTRO (NOVAS)
+// TELAS DO HEMOCENTRO
 // ==========================================
 
 @Composable
@@ -172,6 +263,14 @@ fun CadastroHemoDadosView(onBack: () -> Unit, onContinuar: () -> Unit) {
     val sangueRed = Color(0xFFE21C2C)
     val textDark = Color(0xFF1E293B)
     val textGray = Color(0xFF64748B)
+
+    var nome by remember { mutableStateOf("") }; var cnpj by remember { mutableStateOf("") }; var cnes by remember { mutableStateOf("") }
+    var telefone by remember { mutableStateOf("") }; var email by remember { mutableStateOf("") }; var endereco by remember { mutableStateOf("") }
+    var cidade by remember { mutableStateOf("") }; var cep by remember { mutableStateOf("") }; var observacao by remember { mutableStateOf("") }
+
+    val isFormValid = nome.isNotBlank() && cnpj.isNotBlank() && cnes.isNotBlank() &&
+            telefone.isNotBlank() && email.isNotBlank() && endereco.isNotBlank() &&
+            cidade.isNotBlank() && cep.isNotBlank()
 
     Column(modifier = Modifier.fillMaxSize().background(Color.White)) {
         HeaderApp("Cadastrar hemocentro", onBack)
@@ -184,19 +283,19 @@ fun CadastroHemoDadosView(onBack: () -> Unit, onContinuar: () -> Unit) {
             Text("Informe os dados oficiais do hemocentro.", fontSize = 14.sp, color = textGray)
             Spacer(modifier = Modifier.height(24.dp))
 
-            FormTextField("Nome do hemocentro", "Hemocentro São Paulo")
+            FormTextField("Nome do hemocentro", "Hemocentro São Paulo", isRequired = true, value = nome) { nome = it }
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                FormTextField("CNPJ", "00.000.000/0001-00", Modifier.weight(1f))
-                FormTextField("CNES", "1234567", Modifier.weight(1f))
+                FormTextField("CNPJ", "00.000.000/0001-00", Modifier.weight(1f), isRequired = true, value = cnpj) { cnpj = it }
+                FormTextField("CNES", "1234567", Modifier.weight(1f), isRequired = true, value = cnes) { cnes = it }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                FormTextField("Telefone institucional", "(11) 3333-2222", Modifier.weight(1f))
-                FormTextField("E-mail institucional", "contato@hemo.org", Modifier.weight(1f))
+                FormTextField("Telefone institucional", "(11) 3333-2222", Modifier.weight(1f), isRequired = true, value = telefone) { telefone = it }
+                FormTextField("E-mail institucional", "contato@hemo.org", Modifier.weight(1f), isRequired = true, value = email) { email = it }
             }
-            FormTextField("Endereço", "Av. Paulista, 2073")
+            FormTextField("Endereço", "Av. Paulista, 2073", isRequired = true, value = endereco) { endereco = it }
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                FormTextField("Cidade / Estado", "São Paulo - SP", Modifier.weight(1f))
-                FormTextField("CEP", "01311-200", Modifier.weight(1f))
+                FormTextField("Cidade / Estado", "São Paulo - SP", Modifier.weight(1f), isRequired = true, value = cidade) { cidade = it }
+                FormTextField("CEP", "01311-200", Modifier.weight(1f), isRequired = true, value = cep) { cep = it }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -204,7 +303,13 @@ fun CadastroHemoDadosView(onBack: () -> Unit, onContinuar: () -> Unit) {
             Text("Use dados reais da instituição para agilizar a aprovação.", fontSize = 12.sp, color = textGray)
 
             Spacer(modifier = Modifier.height(32.dp))
-            Button(onClick = onContinuar, modifier = Modifier.fillMaxWidth().height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = sangueRed), shape = RoundedCornerShape(16.dp)) {
+            Button(
+                onClick = onContinuar,
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = sangueRed),
+                shape = RoundedCornerShape(16.dp),
+                enabled = isFormValid
+            ) {
                 Text("Continuar", fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
             Spacer(modifier = Modifier.height(40.dp))
@@ -216,7 +321,20 @@ fun CadastroHemoDadosView(onBack: () -> Unit, onContinuar: () -> Unit) {
 fun CadastroHemoResponsavelView(onBack: () -> Unit, onContinuar: () -> Unit) {
     val sangueRed = Color(0xFFE21C2C)
     val textDark = Color(0xFF1E293B)
-    var isChecked by remember { mutableStateOf(value = true) }
+
+    var nome by remember { mutableStateOf("") }; var cpf by remember { mutableStateOf("") }; var cargo by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }; var telefone by remember { mutableStateOf("") }
+    var senha by remember { mutableStateOf("") }; var confirmarSenha by remember { mutableStateOf("") }
+    var isChecked by remember { mutableStateOf(false) }
+
+    // Regras de validação em tempo real
+    val hasMinLength = senha.length >= 6
+    val hasUpperCase = senha.any { it.isUpperCase() }
+    val hasSpecialChar = senha.any { !it.isLetterOrDigit() }
+    val isFormValid = nome.isNotBlank() && cpf.isNotBlank() && cargo.isNotBlank() &&
+            email.isNotBlank() && telefone.isNotBlank() &&
+            senha.isNotBlank() && senha == confirmarSenha &&
+            hasMinLength && hasUpperCase && hasSpecialChar && isChecked
 
     Column(modifier = Modifier.fillMaxSize().background(Color.White)) {
         HeaderApp("Cadastrar hemocentro", onBack)
@@ -229,22 +347,37 @@ fun CadastroHemoResponsavelView(onBack: () -> Unit, onContinuar: () -> Unit) {
             Text("Informe quem vai administrar o acesso institucional.", fontSize = 14.sp, color = Color(0xFF64748B))
             Spacer(modifier = Modifier.height(24.dp))
 
-            FormTextField("Nome do responsável", "Marina Oliveira")
+            FormTextField("Nome do responsável", "Marina Oliveira", isRequired = true, value = nome) { nome = it }
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                FormTextField("CPF", "000.000.000-00", Modifier.weight(1f))
-                FormTextField("Cargo / função", "Coordenadora", Modifier.weight(1f))
+                FormTextField("CPF", "000.000.000-00", Modifier.weight(1f), isRequired = true, value = cpf) { cpf = it }
+                FormTextField("Cargo / função", "Coordenadora", Modifier.weight(1f), isRequired = true, value = cargo) { cargo = it }
             }
-            FormTextField("E-mail", "marina@hemo.org")
-            FormTextField("Telefone", "(11) 98888-7777")
-            FormTextField("Senha", "••••••••", isPassword = true)
-            FormTextField("Confirmar senha", "••••••••", isPassword = true)
+            FormTextField("E-mail", "marina@hemo.org", isRequired = true, value = email) { email = it }
+            FormTextField("Telefone", "(11) 98888-7777", isRequired = true, value = telefone) { telefone = it }
+            FormTextField("Senha", "••••••••", isPassword = true, isRequired = true, value = senha) { senha = it }
+            FormTextField("Confirmar senha", "••••••••", isPassword = true, isRequired = true, value = confirmarSenha) { confirmarSenha = it }
 
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 16.dp)) {
+            // Feedbacks visuais das regras da senha
+            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
+                RegraSenha("Mínimo de 6 caracteres", hasMinLength)
+                Spacer(modifier = Modifier.height(4.dp))
+                RegraSenha("Pelo menos 1 letra maiúscula", hasUpperCase)
+                Spacer(modifier = Modifier.height(4.dp))
+                RegraSenha("Pelo menos 1 caractere especial (!@#\$%&*)", hasSpecialChar)
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 16.dp).clickable { isChecked = !isChecked }) {
                 Checkbox(checked = isChecked, onCheckedChange = { isChecked = it }, colors = CheckboxDefaults.colors(checkedColor = sangueRed))
                 Text("Confirmo que estou autorizado(a) a representar a instituição", fontSize = 12.sp, color = textDark)
             }
 
-            Button(onClick = onContinuar, modifier = Modifier.fillMaxWidth().height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = sangueRed), shape = RoundedCornerShape(16.dp)) {
+            Button(
+                onClick = onContinuar,
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = sangueRed),
+                shape = RoundedCornerShape(16.dp),
+                enabled = isFormValid
+            ) {
                 Text("Continuar", fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
             Spacer(modifier = Modifier.height(40.dp))
@@ -269,7 +402,6 @@ fun CadastroHemoVerificacaoView(onBack: () -> Unit, onEnviar: () -> Unit) {
             Text("Revise os dados. O cadastro passará por análise antes da ativação.", fontSize = 14.sp, color = textGray)
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Resumo dos Dados
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2)), shape = RoundedCornerShape(16.dp)) {
                 Column(modifier = Modifier.padding(20.dp)) {
                     Text("Hemocentro São Paulo", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = textDark)
@@ -277,14 +409,13 @@ fun CadastroHemoVerificacaoView(onBack: () -> Unit, onEnviar: () -> Unit) {
                     Text("CNPJ: 00.000.000/0001-00", fontSize = 13.sp, color = textGray)
                     Text("CNES: 1234567", fontSize = 13.sp, color = textGray)
                     Text("Responsável: Marina Oliveira", fontSize = 13.sp, color = textGray)
-                    Text("E-mail: contato@hemo.org", fontSize = 13.sp, color = Color(0xFF3B82F6)) // Azul como link
+                    Text("E-mail: contato@hemo.org", fontSize = 13.sp, color = Color(0xFF3B82F6))
                     Text("Endereço: Av. Paulista, 2073 - SP", fontSize = 13.sp, color = textGray)
                 }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Como funciona a análise
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color.White), border = BorderStroke(1.dp, Color(0xFFE2E8F0)), shape = RoundedCornerShape(16.dp)) {
                 Column(modifier = Modifier.padding(20.dp)) {
                     Text("Como funciona a análise", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = textDark)
@@ -297,7 +428,6 @@ fun CadastroHemoVerificacaoView(onBack: () -> Unit, onEnviar: () -> Unit) {
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Prazo estimado (Alerta Amarelo)
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFBEB)), border = BorderStroke(1.dp, Color(0xFFFDE68A)), shape = RoundedCornerShape(16.dp)) {
                 Column(modifier = Modifier.padding(20.dp)) {
                     Text("Prazo estimado", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFFB45309))
@@ -357,12 +487,28 @@ fun CadastroHemoSucessoView(onVoltarLogin: () -> Unit) {
 }
 
 // ==========================================
-// TELAS ORIGINAIS (DOADOR)
+// TELAS DO DOADOR
 // ==========================================
+
 @Composable
 fun CadastroDadosView(onBack: () -> Unit, onContinuar: () -> Unit) {
     val sangueRed = Color(0xFFE21C2C)
-    var isChecked by remember { mutableStateOf(value = false) }
+
+    var nome by remember { mutableStateOf("") }; var cpf by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }; var telefone by remember { mutableStateOf("") }
+    var cidade by remember { mutableStateOf("") }; var senha by remember { mutableStateOf("") }
+    var confirmarSenha by remember { mutableStateOf("") }
+    var isChecked by remember { mutableStateOf(false) }
+
+    // Regras de validação
+    val hasMinLength = senha.length >= 6
+    val hasUpperCase = senha.any { it.isUpperCase() }
+    val hasSpecialChar = senha.any { !it.isLetterOrDigit() }
+
+    val isFormValid = nome.isNotBlank() && cpf.isNotBlank() && email.isNotBlank() &&
+            telefone.isNotBlank() && cidade.isNotBlank() &&
+            senha.isNotBlank() && senha == confirmarSenha &&
+            hasMinLength && hasUpperCase && hasSpecialChar && isChecked
 
     Column(modifier = Modifier.fillMaxSize().background(Color.White)) {
         HeaderApp("Criar conta", onBack)
@@ -373,20 +519,35 @@ fun CadastroDadosView(onBack: () -> Unit, onContinuar: () -> Unit) {
             Text("Preencha as informações para criar sua conta no Sangue+.", fontSize = 14.sp, color = Color(0xFF64748B))
             Spacer(modifier = Modifier.height(24.dp))
 
-            FormTextField("Nome completo", "Ana Silva")
-            FormTextField("CPF", "000.000.000-00")
-            FormTextField("E-mail", "ana@email.com")
-            FormTextField("Telefone", "(11) 99999-9999")
-            FormTextField("Cidade", "São Paulo - SP")
-            FormTextField("Senha", "••••••••", isPassword = true)
-            FormTextField("Confirmar senha", "••••••••", isPassword = true)
+            FormTextField("Nome completo", "Ana Silva", isRequired = true, value = nome) { nome = it }
+            FormTextField("CPF", "000.000.000-00", isRequired = true, value = cpf) { cpf = it }
+            FormTextField("E-mail", "ana@email.com", isRequired = true, value = email) { email = it }
+            FormTextField("Telefone", "(11) 99999-9999", isRequired = true, value = telefone) { telefone = it }
+            FormTextField("Cidade", "São Paulo - SP", isRequired = true, value = cidade) { cidade = it }
+            FormTextField("Senha", "••••••••", isRequired = true, isPassword = true, value = senha) { senha = it }
+            FormTextField("Confirmar senha", "••••••••", isRequired = true, isPassword = true, value = confirmarSenha) { confirmarSenha = it }
 
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 16.dp)) {
+            // Exibição das regras da senha
+            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
+                RegraSenha("Mínimo de 6 caracteres", hasMinLength)
+                Spacer(modifier = Modifier.height(4.dp))
+                RegraSenha("Pelo menos 1 letra maiúscula", hasUpperCase)
+                Spacer(modifier = Modifier.height(4.dp))
+                RegraSenha("Pelo menos 1 caractere especial (!@#\$%&*)", hasSpecialChar)
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 16.dp).clickable { isChecked = !isChecked }) {
                 Checkbox(checked = isChecked, onCheckedChange = { isChecked = it }, colors = CheckboxDefaults.colors(checkedColor = sangueRed))
                 Text("Concordo com os Termos e a Política de Privacidade", fontSize = 12.sp, color = Color(0xFF1E293B))
             }
 
-            Button(onClick = onContinuar, modifier = Modifier.fillMaxWidth().height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = sangueRed), shape = RoundedCornerShape(16.dp)) {
+            Button(
+                onClick = onContinuar,
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = sangueRed),
+                shape = RoundedCornerShape(16.dp),
+                enabled = isFormValid
+            ) {
                 Text("Continuar", fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
             Spacer(modifier = Modifier.height(40.dp))
@@ -407,7 +568,7 @@ fun CadastroSangueView(onBack: () -> Unit, onFinalizar: () -> Unit) {
         Column(modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp).verticalScroll(rememberScrollState())) {
             Text("Você sabe seu tipo sanguíneo?", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = textDark)
             Spacer(modifier = Modifier.height(8.dp))
-            Text("Selecione uma option abaixo. Se você não souber, escolha \"Não sei\". O hemocentro poderá verificar essa informação após sua doação.", fontSize = 14.sp, color = Color(0xFF64748B), lineHeight = 20.sp)
+            Text("Selecione uma opção abaixo. Se você não souber, escolha \"Não sei\". O hemocentro poderá verificar essa informação após sua doação.", fontSize = 14.sp, color = Color(0xFF64748B), lineHeight = 20.sp)
             Spacer(modifier = Modifier.height(32.dp))
 
             bloodTypes.chunked(4).forEach { rowItems ->
@@ -421,12 +582,30 @@ fun CadastroSangueView(onBack: () -> Unit, onFinalizar: () -> Unit) {
                 }
             }
 
-            OutlinedButton(onClick = { selectedBlood = "Não sei" }, modifier = Modifier.fillMaxWidth().height(56.dp).padding(top = 8.dp), border = BorderStroke(1.dp, Color(0xFFE2E8F0)), shape = RoundedCornerShape(16.dp)) {
-                Text("Não sei", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = textDark)
+            Spacer(modifier = Modifier.height(16.dp))
+            OutlinedButton(onClick = { selectedBlood = "Não sei" }, modifier = Modifier.fillMaxWidth().height(48.dp), border = BorderStroke(1.dp, Color(0xFFE2E8F0)), shape = RoundedCornerShape(12.dp)) {
+                Text("Não sei meu tipo sanguíneo", color = textDark, fontWeight = FontWeight.Bold)
             }
 
             Spacer(modifier = Modifier.height(32.dp))
-            Button(onClick = onFinalizar, modifier = Modifier.fillMaxWidth().height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = sangueRed), shape = RoundedCornerShape(16.dp)) {
+            Text("Status da informação", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = textDark)
+            Spacer(modifier = Modifier.height(12.dp))
+            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF2F2)), border = BorderStroke(1.dp, Color(0xFFFECACA)), shape = RoundedCornerShape(12.dp)) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Outlined.Close, contentDescription = null, tint = sangueRed, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Informado por você", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = sangueRed)
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Ainda não verificado", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = textDark)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text("Depois da sua primeira doação, o hemocentro poderá confirmar seu tipo sanguíneo e marcar esta informação como verificada.", fontSize = 12.sp, color = Color(0xFF64748B), lineHeight = 18.sp)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+            Button(onClick = onFinalizar, modifier = Modifier.fillMaxWidth().height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = sangueRed), shape = RoundedCornerShape(12.dp)) {
                 Text("Salvar e continuar", fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
             TextButton(onClick = onFinalizar, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
@@ -452,6 +631,16 @@ fun CadastroSucessoView(onComecar: () -> Unit) {
         Spacer(modifier = Modifier.height(8.dp))
         Text("Seu cadastro foi concluído com sucesso.\nAgora você já pode acessar o app.", fontSize = 14.sp, color = Color(0xFF64748B), textAlign = TextAlign.Center)
         Spacer(modifier = Modifier.height(40.dp))
+
+        Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)), border = BorderStroke(1.dp, Color(0xFFE2E8F0)), shape = RoundedCornerShape(12.dp)) {
+            Column(modifier = Modifier.padding(16.dp).fillMaxWidth()) {
+                Text("Próximo passo", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E293B))
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("Você poderá completar a triagem quando quiser doar e acompanhar seus agendamentos, histórico e conquistas dentro do Sangue+.", fontSize = 12.sp, color = Color(0xFF64748B), lineHeight = 18.sp)
+            }
+        }
+
+        Spacer(modifier = Modifier.weight(1f))
         Button(onClick = onComecar, modifier = Modifier.fillMaxWidth().height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = sangueRed), shape = RoundedCornerShape(16.dp)) {
             Text("Começar", fontSize = 16.sp, fontWeight = FontWeight.Bold)
         }
@@ -472,15 +661,67 @@ fun HeaderApp(title: String, onBack: () -> Unit) {
 }
 
 @Composable
-fun FormTextField(label: String, placeholder: String, modifier: Modifier = Modifier, isPassword: Boolean = false, value: String = "", onValueChange: (String) -> Unit = {}) {
+fun FormTextField(
+    label: String,
+    placeholder: String,
+    modifier: Modifier = Modifier,
+    isPassword: Boolean = false,
+    isRequired: Boolean = false,
+    value: String = "",
+    onValueChange: (String) -> Unit = {}
+) {
+    var passwordVisible by remember { mutableStateOf(false) }
+
     Column(modifier = modifier.padding(bottom = 16.dp)) {
-        Text(label, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF64748B))
+        Row {
+            Text(label, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF64748B))
+            if (isRequired) {
+                Text(" *", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFFE21C2C))
+            }
+        }
         Spacer(modifier = Modifier.height(8.dp))
         OutlinedTextField(
-            value = value, onValueChange = onValueChange, placeholder = { Text(placeholder, color = Color(0xFF94A3B8)) },
-            visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
-            modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp),
-            colors = OutlinedTextFieldDefaults.colors(unfocusedBorderColor = Color(0xFFE2E8F0), focusedBorderColor = Color(0xFFE21C2C))
+            value = value,
+            onValueChange = onValueChange,
+            placeholder = { Text(placeholder, color = Color(0xFF94A3B8)) },
+            visualTransformation = if (isPassword && !passwordVisible) PasswordVisualTransformation() else VisualTransformation.None,
+            trailingIcon = if (isPassword) {
+                {
+                    Text(
+                        text = if (passwordVisible) "Ocultar" else "Mostrar",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF64748B),
+                        modifier = Modifier.padding(end = 16.dp).clickable { passwordVisible = !passwordVisible }
+                    )
+                }
+            } else null,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                unfocusedBorderColor = Color(0xFFE2E8F0),
+                focusedBorderColor = Color(0xFFE21C2C),
+            ),
+        )
+    }
+}
+
+@Composable
+fun RegraSenha(texto: String, cumprida: Boolean) {
+    val cor = if (cumprida) Color(0xFF16A34A) else Color(0xFF64748B)
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            imageVector = if (cumprida) Icons.Default.Check else Icons.Outlined.Close,
+            contentDescription = null,
+            tint = cor,
+            modifier = Modifier.size(16.dp)
+        )
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(
+            text = texto,
+            fontSize = 12.sp,
+            color = cor,
+            textDecoration = if (cumprida) TextDecoration.LineThrough else TextDecoration.None
         )
     }
 }

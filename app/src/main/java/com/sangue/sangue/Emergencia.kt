@@ -57,8 +57,6 @@ fun EmergenciaScreen(
     val coroutineScope = rememberCoroutineScope()
     var showShareSheet by remember { mutableStateOf(value = false) }
 
-    val mensagemCompartilhamento = "Doe sangue e ajude a salvar vidas com o Sangue+. Precisamos de doadores O- com urgência!"
-
     Scaffold(
         containerColor = backgroundGray,
         topBar = {
@@ -69,7 +67,7 @@ fun EmergenciaScreen(
                 IconButton(onClick = onNavigateBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Voltar", tint = textDark) }
                 Text("Emergência", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = textDark, modifier = Modifier.weight(1f).offset(x = (-24).dp), textAlign = TextAlign.Center)
             }
-        }
+        },
     ) { paddingValues ->
         Column(modifier = Modifier.fillMaxSize().padding(paddingValues).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp)) {
             Spacer(modifier = Modifier.height(8.dp))
@@ -124,14 +122,14 @@ fun EmergenciaScreen(
                             iconRes = R.drawable.whatsappicon,
                             outerColor = Color(0xFFDCFCE7),
                         ) {
-                            shareToApp(context, "com.whatsapp", mensagemCompartilhamento)
+                            shareToApp(context, "com.whatsapp")
                         }
                         ShareAppButton(
                             name = "Instagram",
                             iconRes = R.drawable.instaicon,
                             outerColor = Color(0xFFFCE7F3),
                         ) {
-                            shareToApp(context, "com.instagram.android", mensagemCompartilhamento)
+                            shareToApp(context, "com.instagram.android")
                         }
                         ShareAppButton(
                             name = "Mensagens",
@@ -139,7 +137,7 @@ fun EmergenciaScreen(
                             iconTint = Color(0xFF3B82F6),
                             outerColor = Color(0xFFDBEAFE),
                         ) {
-                            sendSms(context, mensagemCompartilhamento)
+                            sendSms(context)
                         }
                         ShareAppButton(
                             name = "Copiar link",
@@ -147,7 +145,7 @@ fun EmergenciaScreen(
                             iconTint = Color(0xFF64748B),
                             outerColor = Color(0xFFF1F5F9),
                         ) {
-                            copyToClipboard(context, mensagemCompartilhamento)
+                            copyToClipboard(context)
                         }
                     }
 
@@ -212,7 +210,8 @@ fun ShareAppButton(
     }
 }
 
-private fun shareToApp(context: Context, packageName: String, text: String) {
+private fun shareToApp(context: Context, packageName: String) {
+    val text = "Doe sangue e ajude a salvar vidas com o Sangue+. Precisamos de doadores O- com urgência!"
     val intent = Intent(Intent.ACTION_SEND).apply {
         type = "text/plain"
         putExtra(Intent.EXTRA_TEXT, text)
@@ -225,7 +224,8 @@ private fun shareToApp(context: Context, packageName: String, text: String) {
     }
 }
 
-private fun sendSms(context: Context, text: String) {
+private fun sendSms(context: Context) {
+    val text = "Doe sangue e ajude a salvar vidas com o Sangue+. Precisamos de doadores O- com urgência!"
     val intent = Intent(Intent.ACTION_VIEW).apply {
         data = "sms:".toUri()
         putExtra("sms_body", text)
@@ -236,7 +236,8 @@ private fun sendSms(context: Context, text: String) {
         Toast.makeText(context, "App não encontrado", Toast.LENGTH_SHORT).show()
     }
 }
-private fun copyToClipboard(context: Context, text: String) {
+private fun copyToClipboard(context: Context) {
+    val text = "Doe sangue e ajude a salvar vidas com o Sangue+. Precisamos de doadores O- com urgência!"
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     clipboard.setPrimaryClip(ClipData.newPlainText("Link", text))
     Toast.makeText(context, "Copiado!", Toast.LENGTH_SHORT).show()
