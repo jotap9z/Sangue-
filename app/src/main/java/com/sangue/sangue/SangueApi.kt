@@ -65,6 +65,48 @@ object SangueApi {
         return resposta
     }
 
+    suspend fun salvarPerfil(
+        nome: String,
+        email: String,
+        telefone: String,
+        cidade: String,
+        cpf: String,
+        senhaAtual: String
+    ): JSONObject {
+        val corpo = JSONObject()
+            .put("nome", nome.trim())
+            .put("email", email.trim())
+            .put(
+                "telefone",
+                telefone.trim().ifBlank { null } ?: JSONObject.NULL
+            )
+            .put(
+                "cidade",
+                cidade.trim().ifBlank { null } ?: JSONObject.NULL
+            )
+            .put(
+                "cpf",
+                cpf.trim().ifBlank { null } ?: JSONObject.NULL
+            )
+            .put(
+                "senhaAtual",
+                senhaAtual.ifBlank { null } ?: JSONObject.NULL
+            )
+
+        val resposta = objeto(
+            metodo = "PUT",
+            caminho = "/api/doadores/me/perfil",
+            corpo = corpo
+        )
+
+        // Atualiza também os dados usados pela Home.
+        withContext(Dispatchers.Main) {
+            usuario = resposta
+        }
+
+        return resposta
+    }
+
     suspend fun sair() {
         try {
             objeto(
@@ -188,8 +230,7 @@ object SangueApi {
 
                 conexao.outputStream.use { stream ->
                     stream.write(
-                        corpo.toString()
-                            .toByteArray(Charsets.UTF_8)
+                        corpo.toString().toByteArray(Charsets.UTF_8)
                     )
                 }
             }
@@ -197,11 +238,7 @@ object SangueApi {
             val status = conexao.responseCode
 
             val stream = if (status in 200..299) {
-                if (status == 204) {
-                    null
-                } else {
-                    conexao.inputStream
-                }
+                if (status == 204) null else conexao.inputStream
             } else {
                 conexao.errorStream
             }
