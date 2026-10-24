@@ -94,8 +94,8 @@ fun ResultadoScreen(
     val motivos = resultado
         ?.optJSONArray("motivos")
         ?.let { array ->
-            (0 until array.length()).map { indice ->
-                array.optString(indice)
+            (0 until array.length()).map {
+                array.optString(it)
             }.filter { it.isNotBlank() }
         }
         .orEmpty()
@@ -114,9 +114,7 @@ fun ResultadoScreen(
                     ),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(
-                    onClick = onNavigateBack
-                ) {
+                IconButton(onClick = onNavigateBack) {
                     Icon(
                         Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Voltar",
@@ -149,9 +147,7 @@ fun ResultadoScreen(
 
             when {
                 carregando -> {
-                    CircularProgressIndicator(
-                        color = sangueRed
-                    )
+                    CircularProgressIndicator(color = sangueRed)
 
                     Text(
                         "Consultando resultado...",
@@ -167,13 +163,8 @@ fun ResultadoScreen(
                         textAlign = TextAlign.Center
                     )
 
-                    TextButton(
-                        onClick = { tentativa++ }
-                    ) {
-                        Text(
-                            "Tentar novamente",
-                            color = sangueRed
-                        )
+                    TextButton(onClick = { tentativa++ }) {
+                        Text("Tentar novamente", color = sangueRed)
                     }
                 }
 
@@ -183,13 +174,8 @@ fun ResultadoScreen(
                         color = textGray
                     )
 
-                    TextButton(
-                        onClick = { tentativa++ }
-                    ) {
-                        Text(
-                            "Consultar novamente",
-                            color = sangueRed
-                        )
+                    TextButton(onClick = { tentativa++ }) {
+                        Text("Consultar novamente", color = sangueRed)
                     }
                 }
 
@@ -204,7 +190,7 @@ fun ResultadoScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = if (semAlertas) {
+                            if (semAlertas) {
                                 Icons.Default.Check
                             } else {
                                 Icons.Outlined.Info
@@ -249,24 +235,20 @@ fun ResultadoScreen(
                             ),
                             shape = RoundedCornerShape(16.dp)
                         ) {
-                            Column(
-                                modifier = Modifier.padding(20.dp)
-                            ) {
+                            Column(modifier = Modifier.padding(20.dp)) {
                                 Text(
                                     "Pontos para avaliação",
                                     fontWeight = FontWeight.Bold,
                                     color = textDark
                                 )
 
-                                motivos.forEach { motivo ->
+                                motivos.forEach {
                                     Text(
-                                        "• $motivo",
+                                        "• $it",
                                         fontSize = 14.sp,
                                         lineHeight = 21.sp,
                                         color = textGray,
-                                        modifier = Modifier.padding(
-                                            top = 12.dp
-                                        )
+                                        modifier = Modifier.padding(top = 12.dp)
                                     )
                                 }
                             }
@@ -286,9 +268,7 @@ fun ResultadoScreen(
                         ),
                         shape = RoundedCornerShape(16.dp)
                     ) {
-                        Column(
-                            modifier = Modifier.padding(20.dp)
-                        ) {
+                        Column(modifier = Modifier.padding(20.dp)) {
                             Text(
                                 "Importante",
                                 fontWeight = FontWeight.Bold,
@@ -298,9 +278,7 @@ fun ResultadoScreen(
                             Spacer(modifier = Modifier.height(8.dp))
 
                             Text(
-                                resultado
-                                    ?.optString("aviso")
-                                    .orEmpty(),
+                                resultado?.optString("aviso").orEmpty(),
                                 color = textGray,
                                 fontSize = 14.sp,
                                 lineHeight = 21.sp
@@ -313,13 +291,30 @@ fun ResultadoScreen(
                     Text(
                         "Pré-triagem registrada na sua conta.",
                         fontSize = 13.sp,
-                        color = textGray,
-                        textAlign = TextAlign.Center
+                        color = textGray
                     )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Button(
+                        onClick = onNavigateToAgendamento,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(54.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = sangueRed
+                        ),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Text(
+                            "Consultar horários",
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             OutlinedButton(
                 onClick = onNavigateBack,

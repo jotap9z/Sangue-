@@ -5,11 +5,10 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
@@ -22,32 +21,321 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
+import org.json.JSONObject
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
+import java.util.TimeZone
+
+private data class CentroAgendamento(
+    val id: Long,
+    val nome: String,
+    val endereco: String,
+    val cidade: String,
+    val estado: String
+)
+
+private data class HorarioAgendamento(
+    val id: Long,
+    val inicio: String,
+    val vagas: Long
+)
+
+private val VermelhoAgendamento = Color(0xFFE21C2C)
+private val TextoAgendamento = Color(0xFF1E293B)
+private val CinzaAgendamento = Color(0xFF64748B)
 
 @Composable
 fun AgendamentoScreen(
     onNavigateBack: () -> Unit = {},
     onNavigateHome: () -> Unit = {},
-    onNavigateToCheckin: () -> Unit = {}, // Novo parâmetro para o botão final
+    onNavigateToCheckin: () -> Unit = {}
 ) {
-    val sangueRed = Color(0xFFE21C2C)
-    val textDark = Color(0xFF1E293B)
-    val textGray = Color(0xFF64748B)
-    val borderGray = Color(0xFFF1F5F9)
-    val lightRedBg = Color(0xFFFEF2F2)
-    val successGreen = Color(0xFF22C55E)
-    val blueBorder = Color(0xFF0EA5E9)
+    val usuarioId = SangueApi.usuario?.optLong("id")
+    val scope = rememberCoroutineScope()
 
-    // ESTADOS DA TELA
-    var etapaAtual by remember { mutableIntStateOf(1) }
-    var dataSelecionada by remember { mutableStateOf("13") }
-    var horarioSelecionado by remember { mutableStateOf("09:00") }
+    var etapa by remember(usuarioId) {
+        mutableStateOf(1)
+    }
+    var centros by remember(usuarioId) {
+        mutableStateOf<List<CentroAgendamento>>(emptyList())
+    }
+    var centroId by remember(usuarioId) {
+        mutableStateOf<Long?>(null)
+    }
+    var horarios by remember(usuarioId) {
+        mutableStateOf<List<HorarioAgendamento>>(emptyList())
+    }
+    var horarioSelecionado by remember(usuarioId) {
+        mutableStateOf<HorarioAgendamento?>(null)
+    }
+    var confirmado by remember(usuarioId) {
+        mutableStateOf<JSONObject?>(null)
+    }
+    var carregandoCentros by remember(usuarioId) {
+        mutableStateOf(true)
+    }
+    var carregandoHorarios by remember(usuarioId) {
+        mutableStateOf(false)
+    }
+    var reservando by remember(usuarioId) {
+        mutableStateOf(false)
+    }
+    var confirmacaoIncerta by remember(usuarioId) {
+        mutableStateOf(false)
+    }
+    var erroCentros by remember(usuarioId) {
+        mutableStateOf<String?>(null)
+    }
+    var erroHorarios by remember(usuarioId) {
+        mutableStateOf<String?>(null)
+    }
+    var erroReserva by remember(usuarioId) {
+        mutableStateOf<String?>(null)
+    }
+    var avisoTriagem by remember(usuarioId) {
+        mutableStateOf<String?>(null)
+    }
+    var atualizarCentros by remember(usuarioId) {
+        mutableStateOf(0)
+    }
+    var atualizarHorarios by remember(usuarioId) {
+        mutableStateOf(0)
+    }
+    var janela by remember(usuarioId) {
+        mutableStateOf(0)
+    }
 
-    // Intercepta o botão de voltar do celular
+    val dataBase = remember(usuarioId) {
+        hojeAgendamento()
+    }
+
+    val inicioPeriodo = remember(dataBase, janela) {
+        somarDiasAgendamento(dataBase, janela * 31)
+    }
+
+    val fimPeriodo = remember(inicioPeriodo) {
+        somarDiasAgendamento(inicioPeriodo, 30)
+    }
+
+    val centroSelecionado = centros.firstOrNull {
+        it.id == centroId
+    }
+
+    LaunchedEffect(usuarioId, atualizarCentros) {
+        carregandoCentros = true
+        erroCentros = null
+        avisoTriagem = null
+
+        try {
+            if (!SangueApi.autenticado) {
+                erroCentros = "Entre na sua conta para agendar."
+                centros = emptyList()
+                centroId = null
+            } else {
+                val triagem = SangueApi.objeto(
+                    metodo = "GET",
+                    caminho = "/api/doadores/me/pre-triagens/ultima"
+                )
+
+                if (
+                    triagem.optString("resultado") ==
+                    "NECESSITA_AVALIACAO"
+                ) {
+                    avisoTriagem = triagem.optString("mensagem")
+                }
+
+                val resposta = SangueApi.lista(
+                    caminho = "/api/hemocentros/buscar",
+                    autenticado = false
+                )
+
+                centros = resposta.map {
+                    CentroAgendamento(
+                        id = it.getLong("id"),
+                        nome = it.getString("nome"),
+                        endereco = it.getString("endereco"),
+                        cidade = it.getString("cidade"),
+                        estado = it.getString("estado")
+                    )
+                }
+
+                if (centros.none { it.id == centroId }) {
+                    centroId = null
+                }
+            }
+        } catch (exception: CancellationException) {
+            throw exception
+        } catch (exception: ApiException) {
+            centros = emptyList()
+            centroId = null
+
+            erroCentros = if (exception.status == 404) {
+                "Responda à pré-triagem antes de agendar."
+            } else {
+                exception.message
+                    ?: "Não foi possível carregar os hemocentros."
+            }
+        } catch (exception: Exception) {
+            centros = emptyList()
+            centroId = null
+            erroCentros = "Não foi possível carregar os hemocentros."
+        } finally {
+            carregandoCentros = false
+        }
+    }
+
+    LaunchedEffect(
+        usuarioId,
+        centroId,
+        inicioPeriodo,
+        atualizarHorarios
+    ) {
+        horarios = emptyList()
+        horarioSelecionado = null
+        erroHorarios = null
+
+        val id = centroId
+
+        if (id == null || !SangueApi.autenticado) {
+            carregandoHorarios = false
+        } else {
+            carregandoHorarios = true
+
+            try {
+                val resposta = SangueApi.lista(
+                    caminho = "/api/hemocentros/$id/horarios" +
+                            "?de=$inicioPeriodo&ate=$fimPeriodo",
+                    autenticado = false
+                )
+
+                horarios = resposta
+                    .filter {
+                        it.optBoolean("ativo") &&
+                                it.optLong("vagasDisponiveis") > 0
+                    }
+                    .map {
+                        HorarioAgendamento(
+                            id = it.getLong("id"),
+                            inicio = it.getString("inicio"),
+                            vagas = it.getLong("vagasDisponiveis")
+                        )
+                    }
+                    .sortedBy { it.inicio }
+            } catch (exception: CancellationException) {
+                throw exception
+            } catch (exception: ApiException) {
+                erroHorarios = exception.message
+                    ?: "Não foi possível carregar os horários."
+            } catch (exception: Exception) {
+                erroHorarios = "Não foi possível carregar os horários."
+            } finally {
+                carregandoHorarios = false
+            }
+        }
+    }
+
+    val voltar: () -> Unit = {
+        if (!reservando) {
+            when {
+                etapa == 3 -> onNavigateHome()
+                confirmacaoIncerta -> onNavigateHome()
+                etapa == 2 -> etapa = 1
+                else -> onNavigateBack()
+            }
+        }
+    }
+
     BackHandler {
-        when (etapaAtual) {
-            3 -> onNavigateHome() // Se finalizou, volta pra home
-            2 -> etapaAtual = 1   // Se tá revisando, volta pra seleção
-            1 -> onNavigateBack() // Se tá no início, sai da tela
+        voltar()
+    }
+
+    suspend fun buscarReserva(
+        horario: HorarioAgendamento
+    ): JSONObject? {
+        val data = horario.inicio.take(10)
+
+        return SangueApi.lista(
+            caminho = "/api/doadores/me/agendamentos" +
+                    "?de=$data&ate=$data"
+        ).firstOrNull {
+            it.optLong("horarioId") == horario.id &&
+                    it.optString("status") == "AGENDADO"
+        }
+    }
+
+    fun confirmarOuVerificar() {
+        if (reservando) return
+
+        val horario = horarioSelecionado ?: return
+
+        if (!SangueApi.autenticado) {
+            erroReserva = "Sua sessão expirou. Entre novamente."
+            return
+        }
+
+        val apenasVerificar = confirmacaoIncerta
+        reservando = true
+        erroReserva = null
+
+        scope.launch {
+            try {
+                if (apenasVerificar) {
+                    val existente = buscarReserva(horario)
+
+                    if (existente != null) {
+                        confirmado = existente
+                        confirmacaoIncerta = false
+                        etapa = 3
+                    } else {
+                        confirmacaoIncerta = false
+                        erroReserva = "Nenhuma reserva ativa foi encontrada " +
+                                "para esse horário. Você pode atualizar as vagas " +
+                                "ou tentar confirmar novamente."
+                    }
+                } else {
+                    val resposta = SangueApi.objeto(
+                        metodo = "POST",
+                        caminho = "/api/doadores/me/agendamentos",
+                        corpo = JSONObject()
+                            .put("horarioId", horario.id)
+                    )
+
+                    check(
+                        resposta.getLong("id") > 0 &&
+                                resposta.getString("status") == "AGENDADO"
+                    )
+
+                    confirmado = resposta
+                    etapa = 3
+                }
+            } catch (exception: CancellationException) {
+                throw exception
+            } catch (exception: ApiException) {
+                if (
+                    apenasVerificar ||
+                    exception.status == 0 ||
+                    exception.status == 409 ||
+                    exception.status >= 500
+                ) {
+                    confirmacaoIncerta = true
+                    erroReserva = (
+                            exception.message
+                                ?: "Não foi possível confirmar a operação."
+                            ) + "\nVerifique a reserva antes de tentar novamente."
+                } else {
+                    erroReserva = exception.message
+                        ?: "Não foi possível reservar esse horário."
+                }
+            } catch (exception: Exception) {
+                confirmacaoIncerta = true
+                erroReserva = "Não foi possível confirmar o resultado " +
+                        "da operação. Verifique se a reserva foi registrada."
+            } finally {
+                reservando = false
+            }
         }
     }
 
@@ -57,322 +345,562 @@ fun AgendamentoScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 24.dp, bottom = 8.dp, start = 16.dp, end = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                    .padding(
+                        top = 24.dp,
+                        bottom = 8.dp,
+                        start = 16.dp,
+                        end = 16.dp
+                    ),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(
-                    onClick = {
-                        when (etapaAtual) {
-                            3 -> onNavigateHome()
-                            2 -> etapaAtual = 1
-                            1 -> onNavigateBack()
-                        }
-                    },
+                    onClick = voltar,
+                    enabled = !reservando
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar", tint = textDark)
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Voltar",
+                        tint = TextoAgendamento
+                    )
                 }
+
                 Text(
-                    text = "Agendar doação",
+                    "Agendar doação",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
-                    color = textDark,
-                    modifier = Modifier.weight(1f).offset(x = (-24).dp),
-                    textAlign = TextAlign.Center,
+                    color = TextoAgendamento,
+                    modifier = Modifier
+                        .weight(1f)
+                        .offset(x = (-24).dp),
+                    textAlign = TextAlign.Center
                 )
             }
         },
         bottomBar = {
-            // Barra inferior dinâmica baseada na etapa
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color.White)
-                    .padding(horizontal = 24.dp, vertical = 16.dp),
+            Surface(
+                color = Color.White,
+                shadowElevation = 4.dp
             ) {
-                when (etapaAtual) {
-                    1 -> {
-                        Button(
-                            onClick = { etapaAtual = 2 },
-                            modifier = Modifier.fillMaxWidth().height(56.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = sangueRed),
-                            shape = RoundedCornerShape(16.dp),
-                        ) {
-                            Text("Continuar", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                    2 -> {
-                        Button(
-                            onClick = { etapaAtual = 3 },
-                            modifier = Modifier.fillMaxWidth().height(56.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = sangueRed),
-                            shape = RoundedCornerShape(16.dp),
-                        ) {
-                            Text("Confirmar agendamento", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                        }
-                        Spacer(modifier = Modifier.height(12.dp))
-                        OutlinedButton(
-                            onClick = { etapaAtual = 1 },
-                            modifier = Modifier.fillMaxWidth().height(56.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White),
-                            border = BorderStroke(1.dp, borderGray),
-                            shape = RoundedCornerShape(16.dp),
-                        ) {
-                            Text("Voltar e alterar", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = sangueRed)
-                        }
-                    }
-                    3 -> {
-                        Button(
-                            onClick = onNavigateToCheckin,
-                            modifier = Modifier.fillMaxWidth().height(56.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = sangueRed),
-                            shape = RoundedCornerShape(16.dp),
-                        ) {
-                            Text("Ver meu Check-in", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                        }
-                        Spacer(modifier = Modifier.height(12.dp))
-                        OutlinedButton(
-                            onClick = onNavigateHome,
-                            modifier = Modifier.fillMaxWidth().height(56.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White),
-                            border = BorderStroke(1.dp, borderGray),
-                            shape = RoundedCornerShape(16.dp),
-                        ) {
-                            Text("Voltar ao início", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = sangueRed)
-                        }
-                    }
-                }
-            }
-        },
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = if (etapaAtual == 3) Alignment.CenterHorizontally else Alignment.Start
-        ) {
-
-            // ==========================================
-            // STEPPER DINÂMICO
-            // ==========================================
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                StepCircle(step = 1, currentStep = etapaAtual)
-                Box(
+                Column(
                     modifier = Modifier
-                        .width(40.dp)
-                        .height(2.dp)
-                        .background(
-                            if (etapaAtual == 3) successGreen else if (etapaAtual >= 2) sangueRed else borderGray
+                        .fillMaxWidth()
+                        .padding(24.dp)
+                ) {
+                    erroReserva?.let {
+                        Text(
+                            it,
+                            color = VermelhoAgendamento,
+                            fontSize = 13.sp,
+                            modifier = Modifier.padding(bottom = 12.dp)
                         )
-                )
-                StepCircle(step = 2, currentStep = etapaAtual)
-                Box(
-                    modifier = Modifier
-                        .width(40.dp)
-                        .height(2.dp)
-                        .background(if (etapaAtual == 3) successGreen else borderGray)
-                )
-                StepCircle(step = 3, currentStep = etapaAtual)
+                    }
+
+                    when (etapa) {
+                        1 -> {
+                            Button(
+                                onClick = {
+                                    erroReserva = null
+                                    etapa = 2
+                                },
+                                enabled = horarioSelecionado != null &&
+                                        !carregandoHorarios &&
+                                        !carregandoCentros,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(54.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = VermelhoAgendamento
+                                ),
+                                shape = RoundedCornerShape(14.dp)
+                            ) {
+                                Text("Revisar agendamento")
+                            }
+                        }
+
+                        2 -> {
+                            Button(
+                                onClick = {
+                                    confirmarOuVerificar()
+                                },
+                                enabled = !reservando,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(54.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = VermelhoAgendamento
+                                ),
+                                shape = RoundedCornerShape(14.dp)
+                            ) {
+                                Text(
+                                    when {
+                                        reservando -> "Aguarde..."
+                                        confirmacaoIncerta -> "Verificar reserva"
+                                        else -> "Confirmar agendamento"
+                                    }
+                                )
+                            }
+
+                            if (!confirmacaoIncerta) {
+                                TextButton(
+                                    onClick = {
+                                        etapa = 1
+                                        erroReserva = null
+                                        atualizarHorarios++
+                                    },
+                                    enabled = !reservando,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        "Voltar e atualizar vagas",
+                                        color = VermelhoAgendamento
+                                    )
+                                }
+                            }
+                        }
+
+                        3 -> {
+                            Button(
+                                onClick = onNavigateHome,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(54.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = VermelhoAgendamento
+                                ),
+                                shape = RoundedCornerShape(14.dp)
+                            ) {
+                                Text("Voltar ao início")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ) { paddingValues ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues),
+            contentPadding = PaddingValues(24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    StepCircle(1, etapa)
+                    Spacer(modifier = Modifier.width(16.dp))
+                    StepCircle(2, etapa)
+                    Spacer(modifier = Modifier.width(16.dp))
+                    StepCircle(3, etapa)
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
             }
 
-            // ==========================================
-            // ETAPA 1: ESCOLHER TUDO
-            // ==========================================
-            if (etapaAtual == 1) {
-                SectionTitle("Escolha o hemocentro")
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    border = BorderStroke(1.dp, borderGray),
-                    shape = RoundedCornerShape(16.dp),
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text("Hemocentro São Paulo", fontWeight = FontWeight.Bold, color = textDark)
-                        Text("Av. Paulista, 2073 - SP", fontSize = 13.sp, color = textGray)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Column {
-                                Text("1,2 km de você", fontSize = 12.sp, color = textGray)
-                                Text("Espera: ~15 min", fontSize = 12.sp, color = textGray)
+            when (etapa) {
+                1 -> {
+                    item {
+                        Text(
+                            "Escolha o hemocentro",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextoAgendamento
+                        )
+
+                        avisoTriagem?.let {
+                            Text(
+                                it,
+                                color = Color(0xFFB45309),
+                                fontSize = 13.sp,
+                                modifier = Modifier.padding(top = 8.dp)
+                            )
+                        }
+                    }
+
+                    if (carregandoCentros) {
+                        item {
+                            CarregandoAgendamento(
+                                "Carregando hemocentros..."
+                            )
+                        }
+                    }
+
+                    erroCentros?.let { mensagem ->
+                        item {
+                            Text(
+                                mensagem,
+                                color = VermelhoAgendamento
+                            )
+
+                            TextButton(
+                                onClick = { atualizarCentros++ },
+                                enabled = !carregandoCentros
+                            ) {
+                                Text(
+                                    "Tentar novamente",
+                                    color = VermelhoAgendamento
+                                )
                             }
-                            Text("Trocar", color = sangueRed, fontWeight = FontWeight.Bold, modifier = Modifier.clickable { })
                         }
                     }
-                }
 
-                SectionTitle("Escolha a data")
-                val datas = listOf("12", "13", "14", "15", "16")
-                val diasSemana = listOf("Sáb", "Dom", "Seg", "Ter", "Qua")
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = 24.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    items(datas.size) { index ->
-                        DateCard(
-                            diaNum = datas[index], mes = "Jul", diaSemana = diasSemana[index],
-                            isSelected = dataSelecionada == datas[index],
-                        ) {
-                            dataSelecionada = datas[index]
+                    if (
+                        !carregandoCentros &&
+                        erroCentros == null &&
+                        centros.isEmpty()
+                    ) {
+                        item {
+                            Text(
+                                "Nenhum hemocentro cadastrado.",
+                                color = CinzaAgendamento
+                            )
                         }
                     }
-                }
 
-                SectionTitle("Escolha o horário")
-                val horarios = listOf("08:00", "09:00", "10:00", "11:00", "14:00", "15:00", "16:00", "17:00")
-                Column(modifier = Modifier.padding(horizontal = 24.dp)) {
-                    horarios.chunked(4).forEach { row ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    items(
+                        items = centros,
+                        key = { "centro-${it.id}" }
+                    ) { centro ->
+                        val selecionado = centro.id == centroId
+
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    centroId = centro.id
+                                    janela = 0
+                                    etapa = 1
+                                    erroReserva = null
+                                },
+                            border = BorderStroke(
+                                if (selecionado) 2.dp else 1.dp,
+                                if (selecionado) {
+                                    VermelhoAgendamento
+                                } else {
+                                    Color(0xFFE2E8F0)
+                                }
+                            ),
+                            colors = CardDefaults.cardColors(
+                                containerColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(14.dp)
                         ) {
-                            row.forEach { hora ->
-                                TimeCard(
-                                    time = hora,
-                                    isSelected = horarioSelecionado == hora,
-                                    modifier = Modifier.weight(1f),
+                            Row(
+                                modifier = Modifier.padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = selecionado,
+                                    onClick = null,
+                                    colors = RadioButtonDefaults.colors(
+                                        selectedColor = VermelhoAgendamento
+                                    )
+                                )
+
+                                Spacer(modifier = Modifier.width(8.dp))
+
+                                Column(
+                                    modifier = Modifier.weight(1f)
                                 ) {
-                                    horarioSelecionado = hora
+                                    Text(
+                                        centro.nome,
+                                        fontWeight = FontWeight.Bold,
+                                        color = TextoAgendamento
+                                    )
+
+                                    Text(
+                                        centro.endereco,
+                                        fontSize = 13.sp,
+                                        color = CinzaAgendamento
+                                    )
+
+                                    Text(
+                                        "${centro.cidade} - ${centro.estado}",
+                                        fontSize = 12.sp,
+                                        color = CinzaAgendamento
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    if (centroSelecionado != null) {
+                        item {
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Text(
+                                "Escolha a data e o horário",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TextoAgendamento
+                            )
+
+                            Text(
+                                "${dataAgendamento(inicioPeriodo)} até " +
+                                        dataAgendamento(fimPeriodo),
+                                color = CinzaAgendamento,
+                                fontSize = 13.sp,
+                                modifier = Modifier.padding(top = 8.dp)
+                            )
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                TextButton(
+                                    onClick = { janela-- },
+                                    enabled = janela > 0 &&
+                                            !carregandoHorarios
+                                ) {
+                                    Text("Anterior")
+                                }
+
+                                TextButton(
+                                    onClick = { atualizarHorarios++ },
+                                    enabled = !carregandoHorarios
+                                ) {
+                                    Text("Atualizar")
+                                }
+
+                                TextButton(
+                                    onClick = { janela++ },
+                                    enabled = !carregandoHorarios
+                                ) {
+                                    Text("Próximo")
+                                }
+                            }
+                        }
+
+                        if (carregandoHorarios) {
+                            item {
+                                CarregandoAgendamento(
+                                    "Consultando vagas..."
+                                )
+                            }
+                        }
+
+                        erroHorarios?.let { mensagem ->
+                            item {
+                                Text(
+                                    mensagem,
+                                    color = VermelhoAgendamento
+                                )
+                            }
+                        }
+
+                        if (
+                            !carregandoHorarios &&
+                            erroHorarios == null &&
+                            horarios.isEmpty()
+                        ) {
+                            item {
+                                Text(
+                                    "Não há horários com vagas neste período. " +
+                                            "Consulte o próximo período ou outro hemocentro.",
+                                    color = CinzaAgendamento,
+                                    fontSize = 14.sp
+                                )
+                            }
+                        }
+
+                        items(
+                            items = horarios,
+                            key = { "horario-${it.id}" }
+                        ) { horario ->
+                            val selecionado =
+                                horarioSelecionado?.id == horario.id
+
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        horarioSelecionado = horario
+                                        erroReserva = null
+                                    },
+                                border = BorderStroke(
+                                    if (selecionado) 2.dp else 1.dp,
+                                    if (selecionado) {
+                                        VermelhoAgendamento
+                                    } else {
+                                        Color(0xFFE2E8F0)
+                                    }
+                                ),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = Color.White
+                                ),
+                                shape = RoundedCornerShape(14.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    RadioButton(
+                                        selected = selecionado,
+                                        onClick = null,
+                                        colors = RadioButtonDefaults.colors(
+                                            selectedColor = VermelhoAgendamento
+                                        )
+                                    )
+
+                                    Spacer(modifier = Modifier.width(8.dp))
+
+                                    Column {
+                                        Text(
+                                            dataHoraAgendamento(horario.inicio),
+                                            fontWeight = FontWeight.Bold,
+                                            color = TextoAgendamento
+                                        )
+
+                                        Text(
+                                            "${horario.vagas} vaga(s) disponível(is)",
+                                            color = CinzaAgendamento,
+                                            fontSize = 13.sp
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
                 }
-            }
 
-            // ==========================================
-            // ETAPA 2: REVISÃO
-            // ==========================================
-            if (etapaAtual == 2) {
-                Text(
-                    text = "Revise seu agendamento",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = textDark,
-                    modifier = Modifier.padding(start = 24.dp, top = 16.dp, bottom = 16.dp)
-                )
+                2 -> {
+                    item {
+                        Text(
+                            "Revise seu agendamento",
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextoAgendamento
+                        )
+                    }
 
-                // Card de Resumo
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    border = BorderStroke(1.dp, borderGray),
-                    shape = RoundedCornerShape(16.dp),
-                ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
-                        Text("Hemocentro São Paulo", fontWeight = FontWeight.Bold, color = textDark)
-                        Text("Av. Paulista, 2073 - SP", fontSize = 13.sp, color = textGray)
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = Color(0xFFF8FAFC)
+                            ),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(20.dp)
+                            ) {
+                                Text(
+                                    centroSelecionado?.nome.orEmpty(),
+                                    fontWeight = FontWeight.Bold,
+                                    color = TextoAgendamento
+                                )
 
-                        Spacer(modifier = Modifier.height(16.dp))
-                        HorizontalDivider(color = borderGray)
-                        Spacer(modifier = Modifier.height(16.dp))
+                                Text(
+                                    centroSelecionado?.endereco.orEmpty(),
+                                    color = CinzaAgendamento
+                                )
 
-                        Row(modifier = Modifier.fillMaxWidth()) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text("Data", fontSize = 12.sp, color = textGray)
-                                Text("$dataSelecionada de julho de 2025", fontWeight = FontWeight.Bold, color = textDark, fontSize = 15.sp)
-                            }
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text("Horário", fontSize = 12.sp, color = textGray)
-                                Text(horarioSelecionado, fontWeight = FontWeight.Bold, color = textDark, fontSize = 15.sp)
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                horarioSelecionado?.let {
+                                    Text(
+                                        dataHoraAgendamento(it.inicio),
+                                        fontWeight = FontWeight.Bold,
+                                        color = VermelhoAgendamento
+                                    )
+                                }
                             }
                         }
+                    }
 
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text("Espera estimada: ~15 min", fontSize = 13.sp, color = textGray)
+                    item {
+                        Text(
+                            "A vaga será confirmada pelo servidor ao concluir " +
+                                    "a reserva. O agendamento não confirma aptidão " +
+                                    "para doar; a avaliação presencial é obrigatória.",
+                            color = CinzaAgendamento,
+                            fontSize = 14.sp
+                        )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                3 -> {
+                    item {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                Icons.Default.Check,
+                                contentDescription = null,
+                                tint = Color(0xFF15803D),
+                                modifier = Modifier.size(64.dp)
+                            )
 
-                // Card Antes de Confirmar
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-                    colors = CardDefaults.cardColors(containerColor = lightRedBg),
-                    shape = RoundedCornerShape(16.dp),
-                    elevation = CardDefaults.cardElevation(0.dp),
-                ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
-                        Text("Antes de confirmar", fontWeight = FontWeight.Bold, color = textDark, fontSize = 16.sp)
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text("• Chegue aproximadamente 15 minutos antes.", fontSize = 14.sp, color = textGray)
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text("• Leve um documento oficial com foto.", fontSize = 14.sp, color = textGray)
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text("• Esteja bem alimentado(a) e hidratado(a).", fontSize = 14.sp, color = textGray)
+                            Text(
+                                "Agendamento confirmado!",
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color(0xFF15803D),
+                                textAlign = TextAlign.Center
+                            )
+                        }
                     }
-                }
-            }
 
-            // ==========================================
-            // ETAPA 3: SUCESSO
-            // ==========================================
-            if (etapaAtual == 3) {
-                Spacer(modifier = Modifier.height(32.dp))
+                    item {
+                        val reserva = confirmado
 
-                // Ícone Grande Verde
-                Box(
-                    modifier = Modifier.size(100.dp).background(successGreen, CircleShape),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(Icons.Default.Check, contentDescription = "Sucesso", tint = Color.White, modifier = Modifier.size(60.dp))
-                }
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = Color(0xFFF8FAFC)
+                            ),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(20.dp)
+                            ) {
+                                Text(
+                                    "Reserva #${reserva?.optLong("id")}",
+                                    fontWeight = FontWeight.Bold,
+                                    color = TextoAgendamento
+                                )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                                Spacer(modifier = Modifier.height(12.dp))
 
-                Text(
-                    text = "Agendamento confirmado!",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = successGreen,
-                    textAlign = TextAlign.Center,
-                )
+                                Text(
+                                    reserva
+                                        ?.optString("nomeHemocentro")
+                                        .orEmpty(),
+                                    fontWeight = FontWeight.Bold
+                                )
 
-                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    reserva
+                                        ?.optString("enderecoHemocentro")
+                                        .orEmpty(),
+                                    color = CinzaAgendamento
+                                )
 
-                Text(
-                    text = "Seu horário foi reservado com sucesso.",
-                    fontSize = 14.sp,
-                    color = textGray,
-                    textAlign = TextAlign.Center,
-                )
+                                Spacer(modifier = Modifier.height(12.dp))
 
-                Spacer(modifier = Modifier.height(32.dp))
-
-                // Card de Resumo com Borda Azul
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    border = BorderStroke(2.dp, blueBorder),
-                    shape = RoundedCornerShape(16.dp),
-                ) {
-                    Column(modifier = Modifier.padding(20.dp), horizontalAlignment = Alignment.Start) {
-                        Text("13/07/2025", fontWeight = FontWeight.ExtraBold, color = textDark, fontSize = 18.sp)
-                        Text(horarioSelecionado, fontWeight = FontWeight.ExtraBold, color = sangueRed, fontSize = 16.sp)
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        Text("Hemocentro São Paulo", fontWeight = FontWeight.Bold, color = textDark)
-                        Text("Av. Paulista, 2073 - SP", fontSize = 13.sp, color = textGray)
+                                Text(
+                                    dataHoraAgendamento(
+                                        reserva
+                                            ?.optString("inicio")
+                                            .orEmpty()
+                                    ),
+                                    color = VermelhoAgendamento,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
                     }
-                }
 
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // Card Lembrete Ativado
-                Card(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-                    colors = CardDefaults.cardColors(containerColor = lightRedBg),
-                    shape = RoundedCornerShape(16.dp),
-                    elevation = CardDefaults.cardElevation(0.dp),
-                ) {
-                    Column(modifier = Modifier.padding(20.dp), horizontalAlignment = Alignment.Start) {
-                        Text("Lembrete ativado 🔔", fontWeight = FontWeight.Bold, color = textDark, fontSize = 16.sp)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text("Vamos avisar você antes do horário\nda sua doação.", fontSize = 14.sp, color = textGray, lineHeight = 20.sp)
+                    item {
+                        Text(
+                            confirmado?.optString("aviso").orEmpty(),
+                            color = CinzaAgendamento,
+                            fontSize = 14.sp
+                        )
                     }
                 }
             }
@@ -380,68 +908,229 @@ fun AgendamentoScreen(
     }
 }
 
-// ==========================================
-// COMPONENTES AUXILIARES
-// ==========================================
+@Composable
+private fun CarregandoAgendamento(
+    texto: String
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        CircularProgressIndicator(
+            modifier = Modifier.size(24.dp),
+            color = VermelhoAgendamento
+        )
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        Text(
+            texto,
+            color = CinzaAgendamento
+        )
+    }
+}
+
+private fun hojeAgendamento(): String {
+    return SimpleDateFormat(
+        "yyyy-MM-dd",
+        Locale.ROOT
+    ).apply {
+        timeZone = TimeZone.getTimeZone("America/Sao_Paulo")
+    }.format(java.util.Date())
+}
+
+private fun somarDiasAgendamento(
+    data: String,
+    dias: Int
+): String {
+    val formato = SimpleDateFormat(
+        "yyyy-MM-dd",
+        Locale.ROOT
+    ).apply {
+        isLenient = false
+        timeZone = TimeZone.getTimeZone("UTC")
+    }
+
+    val calendario = Calendar.getInstance(
+        TimeZone.getTimeZone("UTC")
+    ).apply {
+        time = requireNotNull(formato.parse(data))
+        add(Calendar.DAY_OF_MONTH, dias)
+    }
+
+    return formato.format(calendario.time)
+}
+
+private fun dataAgendamento(
+    valor: String
+): String {
+    val partes = valor.take(10).split("-")
+
+    return if (partes.size == 3) {
+        "${partes[2]}/${partes[1]}/${partes[0]}"
+    } else {
+        valor
+    }
+}
+
+private fun dataHoraAgendamento(
+    valor: String
+): String {
+    return if (valor.length >= 16) {
+        "${dataAgendamento(valor)} às ${valor.substring(11, 16)}"
+    } else {
+        "Data e horário indisponíveis"
+    }
+}
 
 @Composable
-fun StepCircle(step: Int, currentStep: Int) {
-    val isCompleted = step < currentStep
-    val isActive = step == currentStep
-    val isAllDone = currentStep == 3
-
-    val bgColor = when {
-        isAllDone -> Color(0xFF22C55E) // Tudo verde na etapa 3
-        isCompleted || isActive -> Color(0xFFE21C2C) // Vermelho nas etapas concluídas ou ativas
-        else -> Color(0xFFF1F5F9) // Cinza nas pendentes
-    }
+fun StepCircle(
+    step: Int,
+    currentStep: Int
+) {
+    val concluido = step < currentStep || currentStep == 3
+    val ativo = step == currentStep
 
     Box(
-        modifier = Modifier.size(36.dp).background(bgColor, CircleShape),
-        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .size(36.dp)
+            .background(
+                when {
+                    currentStep == 3 -> Color(0xFF22C55E)
+                    concluido || ativo -> VermelhoAgendamento
+                    else -> Color(0xFFF1F5F9)
+                },
+                CircleShape
+            ),
+        contentAlignment = Alignment.Center
     ) {
-        if (isCompleted || isAllDone) {
-            Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+        if (concluido) {
+            Icon(
+                Icons.Default.Check,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(20.dp)
+            )
         } else {
-            Text(step.toString(), color = if (isActive) Color.White else Color(0xFF94A3B8), fontWeight = FontWeight.Bold)
+            Text(
+                step.toString(),
+                color = if (ativo) {
+                    Color.White
+                } else {
+                    CinzaAgendamento
+                },
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }
 
 @Composable
-fun SectionTitle(title: String) {
-    Text(text = title, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color(0xFF1E293B), modifier = Modifier.padding(start = 24.dp, top = 24.dp, bottom = 12.dp))
+fun SectionTitle(
+    title: String
+) {
+    Text(
+        title,
+        fontWeight = FontWeight.Bold,
+        fontSize = 16.sp,
+        color = TextoAgendamento,
+        modifier = Modifier.padding(
+            start = 24.dp,
+            top = 24.dp,
+            bottom = 12.dp
+        )
+    )
 }
 
 @Composable
-fun DateCard(diaNum: String, mes: String, diaSemana: String, isSelected: Boolean, onClick: () -> Unit) {
+fun DateCard(
+    diaNum: String,
+    mes: String,
+    diaSemana: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
     Card(
-        modifier = Modifier.width(65.dp).height(90.dp).clickable { onClick() },
-        colors = CardDefaults.cardColors(containerColor = if (isSelected) Color(0xFFE21C2C) else Color(0xFFF8FAFC)),
-        border = if (!isSelected) BorderStroke(1.dp, Color(0xFFF1F5F9)) else null,
-        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier
+            .width(65.dp)
+            .height(90.dp)
+            .clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) {
+                VermelhoAgendamento
+            } else {
+                Color(0xFFF8FAFC)
+            }
+        ),
+        shape = RoundedCornerShape(12.dp)
     ) {
-        Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-            Text(diaNum, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = if (isSelected) Color.White else Color(0xFF1E293B))
-            Text(mes, fontSize = 12.sp, color = if (isSelected) Color.White else Color(0xFF64748B))
-            Text(diaSemana, fontSize = 12.sp, color = if (isSelected) Color.White else Color(0xFF64748B))
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            val cor = if (isSelected) {
+                Color.White
+            } else {
+                TextoAgendamento
+            }
+
+            Text(
+                diaNum,
+                color = cor,
+                fontWeight = FontWeight.Bold
+            )
+
+            Text(
+                mes,
+                color = cor,
+                fontSize = 12.sp
+            )
+
+            Text(
+                diaSemana,
+                color = cor,
+                fontSize = 12.sp
+            )
         }
     }
 }
 
 @Composable
-fun TimeCard(time: String, isSelected: Boolean, modifier: Modifier, onClick: () -> Unit) {
+fun TimeCard(
+    time: String,
+    isSelected: Boolean,
+    modifier: Modifier,
+    onClick: () -> Unit
+) {
     Card(
-        modifier = modifier.height(45.dp).clickable { onClick() },
-        colors = CardDefaults.cardColors(containerColor = if (isSelected) Color(0xFFE21C2C) else Color(0xFFF8FAFC)),
-        border = if (!isSelected) BorderStroke(1.dp, Color(0xFFF1F5F9)) else null,
-        shape = RoundedCornerShape(12.dp),
+        modifier = modifier
+            .height(45.dp)
+            .clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) {
+                VermelhoAgendamento
+            } else {
+                Color(0xFFF8FAFC)
+            }
+        ),
+        shape = RoundedCornerShape(12.dp)
     ) {
         Box(
-            Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center,
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
         ) {
-            Text(time, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = if (isSelected) Color.White else Color(0xFF1E293B))
+            Text(
+                time,
+                color = if (isSelected) {
+                    Color.White
+                } else {
+                    TextoAgendamento
+                },
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }
