@@ -1,81 +1,230 @@
 package com.sangue.sangue
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import org.json.JSONObject
+import java.math.BigDecimal
 
-// Estrutura de dados para as perguntas
 data class PerguntaItem(
     val texto: String,
     val icone: ImageVector,
-    val corIcone: Color,
+    val corIcone: Color
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
+private data class PerguntaPreTriagem(
+    val chave: String,
+    val texto: String,
+    val permiteNaoSeAplica: Boolean = false
+)
+
+private val perguntasPreTriagem = listOf(
+    PerguntaPreTriagem(
+        "bemDeSaude",
+        "Você está bem de saúde?"
+    ),
+    PerguntaPreTriagem(
+        "sintomasRecentes",
+        "Você teve febre, gripe ou outros sintomas recentes?"
+    ),
+    PerguntaPreTriagem(
+        "cirurgiaRecente",
+        "Você realizou cirurgia nos últimos 12 meses?"
+    ),
+    PerguntaPreTriagem(
+        "tatuagemOuPiercingRecente",
+        "Você fez tatuagem ou colocou piercing nos últimos 12 meses?"
+    ),
+    PerguntaPreTriagem(
+        "gravidaOuAmamentando",
+        "Você está grávida ou amamentando?"
+    ),
+    PerguntaPreTriagem(
+        "condicaoDeSaudeOuMedicamento",
+        "Você possui alguma condição de saúde ou usa medicamento?"
+    ),
+    PerguntaPreTriagem(
+        "descansadoEAlimentado",
+        "Você está descansado(a) e alimentado(a)?"
+    ),
+    PerguntaPreTriagem(
+        "autorizacaoResponsavel",
+        "Se você tem menos de 18 anos, possui autorização formal " +
+                "do responsável legal?",
+        permiteNaoSeAplica = true
+    )
+)
+
 @Composable
 fun PossoDoarScreen(
     onNavigateToResultado: () -> Unit = {},
-    onNavigateBack: () -> Unit = {},
+    onNavigateBack: () -> Unit = {}
 ) {
     val sangueRed = Color(0xFFE21C2C)
     val textDark = Color(0xFF1E293B)
     val textGray = Color(0xFF64748B)
-    val borderGray = Color(0xFFF1F5F9)
-    val successGreen = Color(0xFF22C55E)
-    val backgroundWhite = Color(0xFFFFFFFF)
 
-    // Lista de perguntas baseada na sua imagem
-    val perguntas = listOf(
-        PerguntaItem("Você está bem de saúde?", Icons.Outlined.FavoriteBorder, successGreen),
-        PerguntaItem("Teve febre ou está gripado(a) nos últimos 7 dias?", Icons.Outlined.Thermostat, sangueRed),
-        PerguntaItem("Fez cirurgia nos últimos 12 meses?", Icons.Outlined.MedicalServices, sangueRed),
-        PerguntaItem("Fez tatuagem ou piercing nos últimos 12 meses?", Icons.Outlined.Brush, sangueRed),
-        PerguntaItem("Está grávida ou amamentando?", Icons.Outlined.PregnantWoman, sangueRed),
-        PerguntaItem("Tem alguma doença crônica?", Icons.Outlined.MedicalInformation, successGreen)
-    )
+    val usuarioId = SangueApi.usuario?.optLong("id")
 
-    // Estados para controlar o Bottom Sheet (O Modal que sobe)
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val coroutineScope = rememberCoroutineScope()
-    var showBottomSheet by remember { mutableStateOf(value = false) }
-    var perguntaSelecionada by remember { mutableStateOf<PerguntaItem?>(null) }
+    var peso by remember(usuarioId) {
+        mutableStateOf("")
+    }
 
-    // Estados para as respostas dentro do Modal
-    var respostaSim by remember { mutableStateOf(value = true) } // Começa com 'Sim' selecionado como exemplo
-    var observacao by remember { mutableStateOf("") }
+    var respostas by remember(usuarioId) {
+        mutableStateOf<Map<String, Boolean?>>(emptyMap())
+    }
+
+    var observacoes by remember(usuarioId) {
+        mutableStateOf("")
+    }
+
+    var enviando by remember(usuarioId) {
+        mutableStateOf(false)
+    }
+
+    var erro by remember(usuarioId) {
+        mutableStateOf<String?>(null)
+    }
+
+    val scope = rememberCoroutineScope()
+
+    val formularioCompleto = peso.isNotBlank() &&
+            perguntasPreTriagem.all {
+                respostas.containsKey(it.chave)
+            }
+
+    val voltar: () -> Unit = {
+        if (!enviando) {
+            onNavigateBack()
+        }
+    }
+
+    BackHandler {
+        voltar()
+    }
+
+    fun enviar() {
+        if (enviando) return
+
+        if (!SangueApi.autenticado) {
+            erro = "Entre na sua conta para responder à pré-triagem."
+            return
+        }
+
+        val pesoInformado = peso
+            .trim()
+            .replace(',', '.')
+            .toBigDecimalOrNull()
+
+        if (
+            pesoInformado == null ||
+            pesoInformado <= BigDecimal.ZERO ||
+            pesoInformado > BigDecimal("500") ||
+            pesoInformado.stripTrailingZeros().scale() > 2
+        ) {
+            erro = "Informe um peso válido, maior que zero e até " +
+                    "500 kg, com no máximo duas casas decimais."
+            return
+        }
+
+        val perguntaPendente = perguntasPreTriagem.firstOrNull {
+            !respostas.containsKey(it.chave)
+        }
+
+        if (perguntaPendente != null) {
+            erro = "Responda: ${perguntaPendente.texto}"
+            return
+        }
+
+        val corpo = JSONObject()
+            .put("pesoKg", pesoInformado)
+            .put(
+                "observacoes",
+                observacoes.trim().ifBlank { null }
+                    ?: JSONObject.NULL
+            )
+
+        perguntasPreTriagem.forEach { pergunta ->
+            corpo.put(
+                pergunta.chave,
+                respostas[pergunta.chave] ?: JSONObject.NULL
+            )
+        }
+
+        erro = null
+        enviando = true
+
+        scope.launch {
+            try {
+                SangueApi.objeto(
+                    metodo = "POST",
+                    caminho = "/api/doadores/me/pre-triagens",
+                    corpo = corpo
+                )
+
+                onNavigateToResultado()
+            } catch (exception: CancellationException) {
+                throw exception
+            } catch (exception: ApiException) {
+                erro = exception.message
+                    ?: "Não foi possível registrar a pré-triagem."
+            } catch (exception: Exception) {
+                erro = "Não foi possível confirmar o registro " +
+                        "da pré-triagem. Tente novamente."
+            } finally {
+                enviando = false
+            }
+        }
+    }
 
     Scaffold(
-        containerColor = backgroundWhite,
+        containerColor = Color.White,
         topBar = {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 24.dp, bottom = 8.dp, start = 16.dp, end = 16.dp),
+                    .padding(
+                        top = 24.dp,
+                        bottom = 8.dp,
+                        start = 16.dp,
+                        end = 16.dp
+                    ),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = onNavigateBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar", tint = textDark)
+                IconButton(
+                    onClick = voltar,
+                    enabled = !enviando
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Voltar",
+                        tint = textDark
+                    )
                 }
+
                 Text(
-                    text = "Posso doar?",
+                    "Pré-triagem",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     color = textDark,
@@ -87,17 +236,46 @@ fun PossoDoarScreen(
             }
         },
         bottomBar = {
-            // BOTÃO VER RESULTADO
-            Button(
-                onClick = onNavigateToResultado,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp)
-                    .height(56.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = sangueRed),
-                shape = RoundedCornerShape(16.dp)
+            Surface(
+                color = Color.White,
+                shadowElevation = 4.dp
             ) {
-                Text("Ver resultado", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp)
+                ) {
+                    erro?.let { mensagem ->
+                        Text(
+                            mensagem,
+                            color = sangueRed,
+                            fontSize = 13.sp,
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        )
+                    }
+
+                    Button(
+                        onClick = { enviar() },
+                        enabled = formularioCompleto && !enviando,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = sangueRed
+                        ),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Text(
+                            if (enviando) {
+                                "Enviando..."
+                            } else {
+                                "Enviar e ver resultado"
+                            },
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+                    }
+                }
             }
         }
     ) { paddingValues ->
@@ -110,220 +288,172 @@ fun PossoDoarScreen(
         ) {
             Spacer(modifier = Modifier.height(16.dp))
 
-            // TÍTULOS
             Text(
-                text = "Verifique se você pode doar",
+                "Questionário inicial",
                 fontSize = 22.sp,
                 fontWeight = FontWeight.ExtraBold,
-                color = textDark,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
+                color = textDark
             )
-
-            Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Responda algumas perguntas rápidas\ne descubra na hora.",
+                "Responda com atenção. Esta pré-triagem não " +
+                        "confirma aptidão para doar e não substitui " +
+                        "a avaliação presencial do hemocentro.",
                 fontSize = 14.sp,
+                lineHeight = 21.sp,
                 color = textGray,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth(),
-                lineHeight = 20.sp,
+                modifier = Modifier.padding(top = 8.dp)
             )
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-            // LISTA DE PERGUNTAS (Cards limpos com setinha)
-            perguntas.forEach { pergunta ->
+            OutlinedTextField(
+                value = peso,
+                onValueChange = {
+                    peso = it
+                    erro = null
+                },
+                enabled = !enviando,
+                label = { Text("Peso atual em kg") },
+                placeholder = { Text("Ex.: 70,5") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Decimal
+                ),
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            perguntasPreTriagem.forEachIndexed { indice, pergunta ->
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 12.dp)
-                        .clickable {
-                            perguntaSelecionada = pergunta
-                            observacao = "" // Limpa o campo de observação
-                            showBottomSheet = true // Abre o modal
-                        },
-                    colors = CardDefaults.cardColors(containerColor = backgroundWhite),
-                    border = BorderStroke(1.dp, borderGray),
-                    shape = RoundedCornerShape(16.dp),
-                    elevation = CardDefaults.cardElevation(0.dp)
+                        .padding(bottom = 16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color.White
+                    ),
+                    border = BorderStroke(
+                        1.dp,
+                        Color(0xFFE2E8F0)
+                    ),
+                    shape = RoundedCornerShape(16.dp)
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                    Column(
+                        modifier = Modifier.padding(16.dp)
                     ) {
-                        Icon(
-                            imageVector = pergunta.icone,
-                            contentDescription = null,
-                            tint = pergunta.corIcone,
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(modifier = Modifier.width(16.dp))
                         Text(
-                            text = pergunta.texto,
-                            fontSize = 14.sp,
+                            "${indice + 1}. ${pergunta.texto}",
                             fontWeight = FontWeight.Bold,
                             color = textDark,
-                            modifier = Modifier.weight(1f),
-                            lineHeight = 18.sp
+                            fontSize = 14.sp,
+                            lineHeight = 21.sp
                         )
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                            contentDescription = "Responder",
-                            tint = textGray,
-                            modifier = Modifier.size(20.dp)
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        val respondida = respostas.containsKey(
+                            pergunta.chave
                         )
+
+                        val resposta = respostas[pergunta.chave]
+
+                        OpcaoRespostaPreTriagem(
+                            texto = "Sim",
+                            selecionada = respondida && resposta == true,
+                            habilitada = !enviando
+                        ) {
+                            respostas = respostas + (
+                                    pergunta.chave to true
+                                    )
+                            erro = null
+                        }
+
+                        OpcaoRespostaPreTriagem(
+                            texto = "Não",
+                            selecionada = respondida && resposta == false,
+                            habilitada = !enviando
+                        ) {
+                            respostas = respostas + (
+                                    pergunta.chave to false
+                                    )
+                            erro = null
+                        }
+
+                        if (pergunta.permiteNaoSeAplica) {
+                            OpcaoRespostaPreTriagem(
+                                texto = "Tenho 18 anos ou mais",
+                                selecionada = respondida &&
+                                        resposta == null,
+                                habilitada = !enviando
+                            ) {
+                                respostas = respostas + (
+                                        pergunta.chave to null
+                                        )
+                                erro = null
+                            }
+                        }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(40.dp))
+            OutlinedTextField(
+                value = observacoes,
+                onValueChange = {
+                    observacoes = it.take(500)
+                },
+                enabled = !enviando,
+                label = {
+                    Text("Observações — opcional")
+                },
+                supportingText = {
+                    Text("${observacoes.length}/500")
+                },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 3,
+                shape = RoundedCornerShape(12.dp)
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
         }
+    }
+}
 
-        // =========================================================
-        // MODAL BOTTOM SHEET (O Card que sobe para responder)
-        // =========================================================
-        if ((showBottomSheet) && (perguntaSelecionada != null)) {
-            ModalBottomSheet(
-                onDismissRequest = { showBottomSheet = false },
-                sheetState = sheetState,
-                containerColor = backgroundWhite,
-                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 8.dp)
-                ) {
-                    Text(
-                        text = "RESPONDER PERGUNTA",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = textGray
-                    )
+@Composable
+private fun OpcaoRespostaPreTriagem(
+    texto: String,
+    selecionada: Boolean,
+    habilitada: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .selectable(
+                selected = selecionada,
+                enabled = habilitada,
+                role = Role.RadioButton,
+                onClick = onClick
+            )
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        RadioButton(
+            selected = selecionada,
+            enabled = habilitada,
+            onClick = null,
+            colors = RadioButtonDefaults.colors(
+                selectedColor = Color(0xFFE21C2C)
+            )
+        )
 
-                    Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.width(8.dp))
 
-                    Text(
-                        text = perguntaSelecionada!!.texto,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = textDark,
-                        lineHeight = 26.sp
-                    )
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    // BOTÕES SIM E NÃO
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    ) {
-                        // Botão SIM
-                        Button(
-                            onClick = { respostaSim = true },
-                            modifier = Modifier.weight(1f).height(50.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (respostaSim) sangueRed else backgroundWhite,
-                                contentColor = if (respostaSim) backgroundWhite else textDark
-                            ),
-                            border = if (!respostaSim) BorderStroke(1.dp, borderGray) else null,
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Text("Sim", fontWeight = FontWeight.Bold)
-                        }
-
-                        // Botão NÃO
-                        Button(
-                            onClick = { respostaSim = false },
-                            modifier = Modifier.weight(1f).height(50.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (!respostaSim) sangueRed else backgroundWhite,
-                                contentColor = if (!respostaSim) backgroundWhite else textDark
-                            ),
-                            border = if (respostaSim) BorderStroke(1.dp, borderGray) else null,
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Text("Não", fontWeight = FontWeight.Bold)
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    Text(
-                        text = "Observações (opcional)",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = textGray
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    // 🔥 CAMPO DE TEXTO COM CONTADOR DENTRO (Usando Box)
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(120.dp)
-                    ) {
-                        OutlinedTextField(
-                            value = observacao,
-                            onValueChange = { if (it.length <= 250) observacao = it },
-                            modifier = Modifier.fillMaxSize(),
-                            placeholder = {
-                                Text("Conte qualquer detalhe que considere importante.", fontSize = 14.sp, color = Color(0xFF94A3B8))
-                            },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                unfocusedBorderColor = borderGray,
-                                focusedBorderColor = sangueRed
-                            ),
-                            shape = RoundedCornerShape(12.dp)
-                        )
-
-                        // Contador alinhado no canto inferior direito
-                        Text(
-                            text = "${observacao.length}/250",
-                            fontSize = 12.sp,
-                            color = textGray,
-                            modifier = Modifier
-                                .align(Alignment.BottomEnd) // Joga para baixo e para a direita
-                                .padding(end = 12.dp, bottom = 12.dp) // Dá um respiro das bordas internas
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    // BOTÃO SALVAR
-                    Button(
-                        onClick = {
-                            coroutineScope.launch { sheetState.hide() }.invokeOnCompletion {
-                                if (!sheetState.isVisible) showBottomSheet = false
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth().height(56.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = sangueRed),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Text("Salvar resposta", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                    }
-
-                    // BOTÃO CANCELAR
-                    TextButton(
-                        onClick = {
-                            coroutineScope.launch { sheetState.hide() }.invokeOnCompletion {
-                                if (!sheetState.isVisible) showBottomSheet = false
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
-                    ) {
-                        Text("Cancelar", color = textGray, fontWeight = FontWeight.Bold)
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-                }
-            }
-        }
+        Text(
+            texto,
+            color = Color(0xFF1E293B),
+            fontSize = 14.sp
+        )
     }
 }

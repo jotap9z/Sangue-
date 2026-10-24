@@ -10,8 +10,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -19,189 +20,319 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.CancellationException
+import org.json.JSONObject
 
 @Composable
 fun ResultadoScreen(
     onNavigateBack: () -> Unit = {},
     onNavigateToAgendamento: () -> Unit = {},
-    onNavigateToHemocentros: () -> Unit = {},
+    onNavigateToHemocentros: () -> Unit = {}
 ) {
-    // Paleta de cores do projeto
     val sangueRed = Color(0xFFE21C2C)
     val textDark = Color(0xFF1E293B)
     val textGray = Color(0xFF64748B)
-    val borderGray = Color(0xFFF1F5F9)
-    val successGreen = Color(0xFF22C55E)
-    val successLightGreen = Color(0xFFDCFCE7) // Fundo claro ao redor do ícone
+
+    val usuarioId = SangueApi.usuario?.optLong("id")
+
+    var resultado by remember(usuarioId) {
+        mutableStateOf<JSONObject?>(null)
+    }
+
+    var carregando by remember(usuarioId) {
+        mutableStateOf(true)
+    }
+
+    var erro by remember(usuarioId) {
+        mutableStateOf<String?>(null)
+    }
+
+    var tentativa by remember(usuarioId) {
+        mutableStateOf(0)
+    }
+
+    LaunchedEffect(usuarioId, tentativa) {
+        resultado = null
+        erro = null
+        carregando = true
+
+        try {
+            if (!SangueApi.autenticado) {
+                erro = "Entre novamente para consultar a pré-triagem."
+            } else {
+                resultado = SangueApi.objeto(
+                    metodo = "GET",
+                    caminho = "/api/doadores/me/pre-triagens/ultima"
+                )
+            }
+        } catch (exception: CancellationException) {
+            throw exception
+        } catch (exception: ApiException) {
+            erro = exception.message
+                ?: "Não foi possível consultar o resultado."
+        } catch (exception: Exception) {
+            erro = "Não foi possível consultar o resultado."
+        } finally {
+            carregando = false
+        }
+    }
+
+    val classificacao = resultado
+        ?.optString("resultado")
+        .orEmpty()
+
+    val semAlertas = classificacao == "SEM_ALERTAS_INICIAIS"
+    val necessitaAvaliacao = classificacao == "NECESSITA_AVALIACAO"
+    val resultadoReconhecido = semAlertas || necessitaAvaliacao
+
+    val corResultado = if (semAlertas) {
+        Color(0xFF15803D)
+    } else {
+        Color(0xFFB45309)
+    }
+
+    val motivos = resultado
+        ?.optJSONArray("motivos")
+        ?.let { array ->
+            (0 until array.length()).map { indice ->
+                array.optString(indice)
+            }.filter { it.isNotBlank() }
+        }
+        .orEmpty()
 
     Scaffold(
         containerColor = Color.White,
         topBar = {
-            // CABEÇALHO
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 24.dp, bottom = 16.dp, start = 16.dp, end = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                    .padding(
+                        top = 24.dp,
+                        bottom = 16.dp,
+                        start = 16.dp,
+                        end = 16.dp
+                    ),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = onNavigateBack) { // 🔥 TROQUE AQUI: Dispara a volta!
+                IconButton(
+                    onClick = onNavigateBack
+                ) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Voltar",
-                        tint = textDark,
-                        modifier = Modifier.size(24.dp)
+                        tint = textDark
                     )
                 }
 
                 Text(
-                    text = "Resultado",
+                    "Resultado da pré-triagem",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     color = textDark,
                     modifier = Modifier
                         .weight(1f)
-                        .offset(x = (-24).dp), // Compensa o ícone para centralizar perfeitamente
+                        .offset(x = (-24).dp),
                     textAlign = TextAlign.Center
                 )
             }
         }
     ) { paddingValues ->
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(horizontal = 24.dp)
-                .verticalScroll(rememberScrollState()), // Permite rolar em telas menores
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // ÍCONE DE SUCESSO (Círculos sobrepostos)
-            Box(
-                modifier = Modifier
-                    .size(100.dp)
-                    .background(color = successLightGreen, shape = CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(70.dp)
-                        .background(color = successGreen, shape = CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = "Sucesso",
-                        tint = Color.White,
-                        modifier = Modifier.size(40.dp)
-                    )
-                }
-            }
-
             Spacer(modifier = Modifier.height(24.dp))
 
-            // TEXTOS DE RESULTADO
-            Text(
-                text = "Você pode doar!",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = successGreen,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = "Tudo indica que você está apto(a)\npara doar sangue.",
-                fontSize = 14.sp,
-                color = textGray,
-                textAlign = TextAlign.Center,
-                lineHeight = 20.sp
-            )
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // CARD 1: IMPORTANTE
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                border = BorderStroke(1.dp, borderGray),
-                shape = RoundedCornerShape(16.dp),
-                elevation = CardDefaults.cardElevation(0.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "Importante",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = textDark
+            when {
+                carregando -> {
+                    CircularProgressIndicator(
+                        color = sangueRed
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
+
                     Text(
-                        text = "Se algo mudar, responda novamente\ne verifique.",
-                        fontSize = 14.sp,
+                        "Consultando resultado...",
                         color = textGray,
-                        lineHeight = 20.sp
+                        modifier = Modifier.padding(top = 16.dp)
                     )
                 }
-            }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // CARD 2: PRÓXIMOS PASSOS
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                border = BorderStroke(1.dp, borderGray),
-                shape = RoundedCornerShape(16.dp),
-                elevation = CardDefaults.cardElevation(0.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                erro != null -> {
                     Text(
-                        text = "Próximos passos",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = textDark
+                        erro.orEmpty(),
+                        color = sangueRed,
+                        textAlign = TextAlign.Center
                     )
+
+                    TextButton(
+                        onClick = { tentativa++ }
+                    ) {
+                        Text(
+                            "Tentar novamente",
+                            color = sangueRed
+                        )
+                    }
+                }
+
+                !resultadoReconhecido -> {
+                    Text(
+                        "Resultado indisponível.",
+                        color = textGray
+                    )
+
+                    TextButton(
+                        onClick = { tentativa++ }
+                    ) {
+                        Text(
+                            "Consultar novamente",
+                            color = sangueRed
+                        )
+                    }
+                }
+
+                else -> {
+                    Box(
+                        modifier = Modifier
+                            .size(90.dp)
+                            .background(
+                                corResultado.copy(alpha = 0.1f),
+                                CircleShape
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (semAlertas) {
+                                Icons.Default.Check
+                            } else {
+                                Icons.Outlined.Info
+                            },
+                            contentDescription = null,
+                            tint = corResultado,
+                            modifier = Modifier.size(44.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Text(
+                        if (semAlertas) {
+                            "Sem alertas iniciais"
+                        } else {
+                            "Converse com o hemocentro"
+                        },
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = corResultado,
+                        textAlign = TextAlign.Center
+                    )
+
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Lista de passos usando o componente reutilizável que criamos abaixo
-                    PassoItem(texto = "Agende sua doação")
-                    PassoItem(texto = "Hidrate-se bem")
-                    PassoItem(texto = "Alimente-se antes de doar")
-                    PassoItem(texto = "Apresente um documento oficial\ncom foto")
+                    Text(
+                        resultado?.optString("mensagem").orEmpty(),
+                        fontSize = 15.sp,
+                        lineHeight = 22.sp,
+                        color = textGray,
+                        textAlign = TextAlign.Center
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    if (motivos.isNotEmpty()) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = Color(0xFFFFFBEB)
+                            ),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(20.dp)
+                            ) {
+                                Text(
+                                    "Pontos para avaliação",
+                                    fontWeight = FontWeight.Bold,
+                                    color = textDark
+                                )
+
+                                motivos.forEach { motivo ->
+                                    Text(
+                                        "• $motivo",
+                                        fontSize = 14.sp,
+                                        lineHeight = 21.sp,
+                                        color = textGray,
+                                        modifier = Modifier.padding(
+                                            top = 12.dp
+                                        )
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color.White
+                        ),
+                        border = BorderStroke(
+                            1.dp,
+                            Color(0xFFE2E8F0)
+                        ),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(20.dp)
+                        ) {
+                            Text(
+                                "Importante",
+                                fontWeight = FontWeight.Bold,
+                                color = textDark
+                            )
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Text(
+                                resultado
+                                    ?.optString("aviso")
+                                    .orEmpty(),
+                                color = textGray,
+                                fontSize = 14.sp,
+                                lineHeight = 21.sp
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text(
+                        "Pré-triagem registrada na sua conta.",
+                        fontSize = 13.sp,
+                        color = textGray,
+                        textAlign = TextAlign.Center
+                    )
                 }
             }
 
-            // Empurra os botões para o final da tela caso haja espaço extra
-            Spacer(modifier = Modifier.weight(1f, fill = false))
             Spacer(modifier = Modifier.height(32.dp))
 
-            // BOTÕES DE AÇÃO
-            Button(
-                onClick = onNavigateToAgendamento,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = sangueRed),
-                shape = RoundedCornerShape(16.dp),
-            ) {
-                Text(text = "Agendar agora", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
             OutlinedButton(
-                onClick = onNavigateToHemocentros,
+                onClick = onNavigateBack,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp),
-                border = BorderStroke(1.dp, Color(0xFFFECACA)), // Borda vermelha clarinha
-                colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White),
-                shape = RoundedCornerShape(16.dp),
+                    .height(52.dp),
+                shape = RoundedCornerShape(12.dp)
             ) {
-                Text(text = "Ver hemocentros próximos", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = sangueRed)
+                Text(
+                    "Voltar ao questionário",
+                    color = sangueRed,
+                    fontWeight = FontWeight.Bold
+                )
             }
 
             Spacer(modifier = Modifier.height(32.dp))
@@ -209,9 +340,10 @@ fun ResultadoScreen(
     }
 }
 
-// COMPONENTE REUTILIZÁVEL PARA OS ITENS DE CHECKLIST
 @Composable
-fun PassoItem(texto: String) {
+fun PassoItem(
+    texto: String
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -219,16 +351,16 @@ fun PassoItem(texto: String) {
         verticalAlignment = Alignment.Top
     ) {
         Icon(
-            imageVector = Icons.Default.Check,
-            contentDescription = "Check",
-            tint = Color(0xFF1E293B), // Cinza escuro para o ícone de check
-            modifier = Modifier
-                .size(20.dp)
-                .offset(y = 2.dp) // Alinha perfeitamente o ícone com o texto
+            Icons.Default.Check,
+            contentDescription = null,
+            tint = Color(0xFF1E293B),
+            modifier = Modifier.size(20.dp)
         )
+
         Spacer(modifier = Modifier.width(8.dp))
+
         Text(
-            text = texto,
+            texto,
             fontSize = 14.sp,
             color = Color(0xFF64748B),
             lineHeight = 20.sp
