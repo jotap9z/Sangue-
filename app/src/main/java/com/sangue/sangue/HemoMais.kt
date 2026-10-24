@@ -27,7 +27,8 @@ private enum class TelaMaisReal {
     MENU,
     EQUIPE,
     HORARIOS,
-    PERFIL
+    PERFIL,
+    MEU_PERFIL
 }
 
 private val VermelhoMaisReal = Color(0xFFE21C2C)
@@ -97,6 +98,17 @@ fun HemoMaisScreen(
     }
 
     when (tela) {
+        TelaMaisReal.MEU_PERFIL -> {
+            HemoMeuPerfilScreen(
+                onNavigateBack = {
+                    tela = TelaMaisReal.MENU
+                    atualizar++
+                },
+                onLogout = onLogout
+            )
+            return
+        }
+
         TelaMaisReal.EQUIPE -> {
             HemoEquipeScreen(
                 onNavigateBack = {
@@ -325,6 +337,14 @@ fun HemoMaisScreen(
                     text = it,
                     color = VermelhoMaisReal
                 )
+            }
+
+            ItemMaisReal(
+                "Meu perfil",
+                "Editar seus dados pessoais e alterar sua senha",
+                !saindo
+            ) {
+                tela = TelaMaisReal.MEU_PERFIL
             }
 
             ItemMaisReal(

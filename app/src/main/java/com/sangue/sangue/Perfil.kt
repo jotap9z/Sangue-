@@ -54,10 +54,6 @@ private val PerfilVermelho = Color(0xFFE21C2C)
 private val PerfilTexto = Color(0xFF1E293B)
 private val PerfilCinza = Color(0xFF64748B)
 
-// ==========================================
-// FLUXO DO PERFIL
-// ==========================================
-
 @Composable
 fun PerfilScreen(
     onNavigateBack: () -> Unit = {},
@@ -67,19 +63,15 @@ fun PerfilScreen(
     var currentRoute by remember {
         mutableStateOf(PerfilRoute.MAIN)
     }
-
     var carregando by remember {
         mutableStateOf(true)
     }
-
     var erro by remember {
         mutableStateOf<String?>(null)
     }
-
     var tentativa by remember {
         mutableStateOf(0)
     }
-
     var saindo by remember {
         mutableStateOf(false)
     }
@@ -102,7 +94,7 @@ fun PerfilScreen(
         } catch (exception: ApiException) {
             erro = exception.message
                 ?: "Não foi possível atualizar o perfil."
-        } catch (exception: Exception) {
+        } catch (_: Exception) {
             erro = "Não foi possível atualizar o perfil."
         } finally {
             carregando = false
@@ -111,7 +103,6 @@ fun PerfilScreen(
 
     fun encerrarSessao() {
         if (saindo) return
-
         saindo = true
 
         scope.launch {
@@ -123,8 +114,7 @@ fun PerfilScreen(
                 }
             } catch (exception: CancellationException) {
                 throw exception
-            } catch (exception: Exception) {
-                // sair() já remove a sessão local no finally.
+            } catch (_: Exception) {
                 Toast.makeText(
                     context,
                     "Você saiu deste aparelho. " +
@@ -161,7 +151,8 @@ fun PerfilScreen(
             PerfilRoute.EDITAR -> PerfilEditarView(
                 onBack = {
                     currentRoute = PerfilRoute.MAIN
-                }
+                },
+                onSessaoEncerrada = onLogout
             )
 
             PerfilRoute.NOTIFICACOES -> PerfilNotificacoesView(
@@ -216,22 +207,13 @@ fun PerfilScreen(
                         modifier = Modifier.size(28.dp),
                         color = PerfilVermelho
                     )
-
                     Spacer(modifier = Modifier.width(16.dp))
-
-                    Text(
-                        "Encerrando sessão...",
-                        color = PerfilTexto
-                    )
+                    Text("Encerrando sessão...", color = PerfilTexto)
                 }
             }
         }
     }
 }
-
-// ==========================================
-// TELA PRINCIPAL
-// ==========================================
 
 @Composable
 fun PerfilMainView(
@@ -268,9 +250,9 @@ fun PerfilMainView(
                 )
             }
 
-            erro?.let { mensagem ->
+            erro?.let {
                 Text(
-                    mensagem,
+                    it,
                     color = PerfilVermelho,
                     fontSize = 13.sp,
                     modifier = Modifier.padding(24.dp)
@@ -280,10 +262,7 @@ fun PerfilMainView(
                     onClick = onAtualizar,
                     enabled = !carregando
                 ) {
-                    Text(
-                        "Tentar novamente",
-                        color = PerfilVermelho
-                    )
+                    Text("Tentar novamente", color = PerfilVermelho)
                 }
             }
 
@@ -292,10 +271,7 @@ fun PerfilMainView(
             Box(
                 modifier = Modifier
                     .size(90.dp)
-                    .background(
-                        Color(0xFFCBD5E1),
-                        CircleShape
-                    ),
+                    .background(Color(0xFFCBD5E1), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -328,14 +304,12 @@ fun PerfilMainView(
 
             if (usuario != null) {
                 Spacer(modifier = Modifier.height(12.dp))
-
                 Text(
                     tipoSanguineoPerfil(usuario),
                     fontSize = 18.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = PerfilVermelho
                 )
-
                 Text(
                     "Tipo sanguíneo cadastrado",
                     fontSize = 12.sp,
@@ -346,41 +320,27 @@ fun PerfilMainView(
             Spacer(modifier = Modifier.height(24.dp))
 
             if (usuario != null && !carregando) {
-                MenuPerfilItem(
-                    Icons.Outlined.Edit,
-                    "Editar perfil"
-                ) {
+                MenuPerfilItem(Icons.Outlined.Edit, "Editar perfil") {
                     onRoute(PerfilRoute.EDITAR)
                 }
-
                 MenuPerfilItem(
                     Icons.Outlined.Notifications,
                     "Notificações"
                 ) {
                     onRoute(PerfilRoute.NOTIFICACOES)
                 }
-
-                MenuPerfilItem(
-                    Icons.Outlined.Lock,
-                    "Privacidade"
-                ) {
+                MenuPerfilItem(Icons.Outlined.Lock, "Privacidade") {
                     onRoute(PerfilRoute.PRIVACIDADE)
                 }
-
                 MenuPerfilItem(
                     Icons.AutoMirrored.Outlined.HelpOutline,
                     "Ajuda"
                 ) {
                     onRoute(PerfilRoute.AJUDA)
                 }
-
-                MenuPerfilItem(
-                    Icons.Outlined.Info,
-                    "Sobre o app"
-                ) {
+                MenuPerfilItem(Icons.Outlined.Info, "Sobre o app") {
                     onRoute(PerfilRoute.SOBRE)
                 }
-
                 MenuPerfilItem(
                     Icons.Outlined.CreditCard,
                     "Carteira do Doador"
@@ -392,17 +352,12 @@ fun PerfilMainView(
             Spacer(modifier = Modifier.height(32.dp))
 
             OutlinedButton(
-                onClick = {
-                    showLogoutDialog = true
-                },
+                onClick = { showLogoutDialog = true },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp)
                     .height(56.dp),
-                border = BorderStroke(
-                    1.dp,
-                    Color(0xFFE2E8F0)
-                ),
+                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
                 shape = RoundedCornerShape(16.dp)
             ) {
                 Text(
@@ -419,9 +374,7 @@ fun PerfilMainView(
 
     if (showLogoutDialog) {
         AlertDialog(
-            onDismissRequest = {
-                showLogoutDialog = false
-            },
+            onDismissRequest = { showLogoutDialog = false },
             containerColor = Color.White,
             shape = RoundedCornerShape(24.dp),
             icon = {
@@ -431,9 +384,7 @@ fun PerfilMainView(
                     tint = PerfilVermelho
                 )
             },
-            title = {
-                Text("Deseja sair?")
-            },
+            title = { Text("Deseja sair?") },
             text = {
                 Text(
                     "Você precisará entrar novamente para acessar seus dados."
@@ -451,9 +402,7 @@ fun PerfilMainView(
             },
             dismissButton = {
                 TextButton(
-                    onClick = {
-                        showLogoutDialog = false
-                    }
+                    onClick = { showLogoutDialog = false }
                 ) {
                     Text("Cancelar", color = PerfilCinza)
                 }
@@ -462,13 +411,10 @@ fun PerfilMainView(
     }
 }
 
-// ==========================================
-// EDIÇÃO CONECTADA À API
-// ==========================================
-
 @Composable
 fun PerfilEditarView(
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onSessaoEncerrada: () -> Unit = {}
 ) {
     val usuario = SangueApi.usuario
     val usuarioId = usuario?.optLong("id")
@@ -476,48 +422,44 @@ fun PerfilEditarView(
     var nome by remember(usuarioId) {
         mutableStateOf(usuario.textoPerfil("nome"))
     }
-
     var email by remember(usuarioId) {
         mutableStateOf(usuario.textoPerfil("email"))
     }
-
     var telefone by remember(usuarioId) {
         mutableStateOf(usuario.textoPerfil("telefone"))
     }
-
     var cidade by remember(usuarioId) {
         mutableStateOf(usuario.textoPerfil("cidade"))
     }
-
     var cpf by remember(usuarioId) {
         mutableStateOf(usuario.textoPerfil("cpf"))
     }
-
-    var senhaAtual by remember {
+    var senhaConfirmacaoEmail by remember(usuarioId) {
         mutableStateOf("")
     }
-
-    var salvando by remember {
+    var salvando by remember(usuarioId) {
         mutableStateOf(false)
     }
-
-    var erro by remember {
+    var alterandoSenha by remember(usuarioId) {
+        mutableStateOf(false)
+    }
+    var erro by remember(usuarioId) {
         mutableStateOf<String?>(null)
     }
 
     val emailOriginal = usuario.textoPerfil("email")
     val cpfRegistrado = usuario.textoPerfil("cpf").isNotBlank()
-
     val alterouEmail = !email.trim().equals(
         emailOriginal,
         ignoreCase = true
     )
 
+    val ocupado = salvando || alterandoSenha
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
     val voltar: () -> Unit = {
-        if (!salvando) {
+        if (!ocupado) {
             onBack()
         }
     }
@@ -527,7 +469,7 @@ fun PerfilEditarView(
     }
 
     fun salvar() {
-        if (salvando) return
+        if (ocupado) return
 
         if (!SangueApi.autenticado) {
             erro = "Sua sessão expirou. Entre novamente."
@@ -548,7 +490,7 @@ fun PerfilEditarView(
             return
         }
 
-        if (alterouEmail && senhaAtual.isBlank()) {
+        if (alterouEmail && senhaConfirmacaoEmail.isBlank()) {
             erro = "Informe sua senha atual para alterar o e-mail."
             return
         }
@@ -565,11 +507,13 @@ fun PerfilEditarView(
                     cidade = cidade,
                     cpf = cpf,
                     senhaAtual = if (alterouEmail) {
-                        senhaAtual
+                        senhaConfirmacaoEmail
                     } else {
                         ""
                     }
                 )
+
+                senhaConfirmacaoEmail = ""
 
                 Toast.makeText(
                     context,
@@ -583,9 +527,10 @@ fun PerfilEditarView(
             } catch (exception: ApiException) {
                 erro = exception.message
                     ?: "Não foi possível salvar o perfil."
-            } catch (exception: Exception) {
+            } catch (_: Exception) {
                 erro = "Não foi possível confirmar a atualização. " +
-                        "Volte ao perfil e confira os dados antes de tentar novamente."
+                        "Volte ao perfil e confira os dados " +
+                        "antes de tentar novamente."
             } finally {
                 salvando = false
             }
@@ -616,7 +561,7 @@ fun PerfilEditarView(
             CampoEditarPerfil(
                 label = "Nome completo",
                 value = nome,
-                enabled = !salvando
+                enabled = !ocupado
             ) {
                 nome = it
             }
@@ -624,7 +569,7 @@ fun PerfilEditarView(
             CampoEditarPerfil(
                 label = "E-mail",
                 value = email,
-                enabled = !salvando
+                enabled = !ocupado
             ) {
                 email = it
             }
@@ -632,7 +577,7 @@ fun PerfilEditarView(
             CampoEditarPerfil(
                 label = "Telefone",
                 value = telefone,
-                enabled = !salvando
+                enabled = !ocupado
             ) {
                 telefone = it
             }
@@ -640,7 +585,7 @@ fun PerfilEditarView(
             CampoEditarPerfil(
                 label = "Cidade",
                 value = cidade,
-                enabled = !salvando
+                enabled = !ocupado
             ) {
                 cidade = it
             }
@@ -648,7 +593,7 @@ fun PerfilEditarView(
             CampoEditarPerfil(
                 label = "CPF",
                 value = cpf,
-                enabled = !salvando,
+                enabled = !ocupado,
                 readOnly = cpfRegistrado
             ) {
                 cpf = it
@@ -679,16 +624,15 @@ fun PerfilEditarView(
                     modifier = Modifier.padding(bottom = 12.dp)
                 )
 
-                FormTextField(
-                    label = "Senha atual",
-                    placeholder = "Informe sua senha",
+                CampoContaPerfil(
+                    label = "Senha atual para alterar o e-mail",
+                    value = senhaConfirmacaoEmail,
+                    enabled = !ocupado,
                     isPassword = true,
-                    value = senhaAtual
-                ) {
-                    if (!salvando) {
-                        senhaAtual = it
+                    onValueChange = {
+                        senhaConfirmacaoEmail = it
                     }
-                }
+                )
             }
 
             erro?.let {
@@ -704,7 +648,7 @@ fun PerfilEditarView(
 
             Button(
                 onClick = { salvar() },
-                enabled = !salvando && usuario != null,
+                enabled = !ocupado && usuario != null,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
@@ -721,20 +665,26 @@ fun PerfilEditarView(
 
             TextButton(
                 onClick = voltar,
-                enabled = !salvando,
+                enabled = !ocupado,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("Cancelar", color = PerfilCinza)
             }
 
+            Spacer(modifier = Modifier.height(24.dp))
+
+            CamposSenhaPerfil(
+                enabled = !salvando && usuario != null,
+                onOcupadoChange = {
+                    alterandoSenha = it
+                },
+                onLogout = onSessaoEncerrada
+            )
+
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }
-
-// ==========================================
-// CARTEIRA SEM DADOS FICTÍCIOS
-// ==========================================
 
 @Composable
 fun PerfilCarteiraView(
@@ -742,7 +692,6 @@ fun PerfilCarteiraView(
 ) {
     val usuario = SangueApi.usuario
     val context = LocalContext.current
-
     val identificacao = usuario
         ?.optLong("id")
         ?.takeIf { it > 0 }
@@ -775,9 +724,7 @@ fun PerfilCarteiraView(
                         fontSize = 22.sp,
                         fontWeight = FontWeight.ExtraBold
                     )
-
                     Spacer(modifier = Modifier.height(20.dp))
-
                     Text(
                         usuario.textoPerfil("nome")
                             .ifBlank { "Dados indisponíveis" },
@@ -785,15 +732,12 @@ fun PerfilCarteiraView(
                         fontWeight = FontWeight.Bold,
                         color = Color.White
                     )
-
                     Spacer(modifier = Modifier.height(16.dp))
-
                     Text(
                         "Tipo sanguíneo cadastrado",
                         color = Color.White.copy(alpha = 0.85f),
                         fontSize = 12.sp
                     )
-
                     Text(
                         tipoSanguineoPerfil(usuario),
                         fontSize = 28.sp,
@@ -804,7 +748,6 @@ fun PerfilCarteiraView(
             }
 
             Spacer(modifier = Modifier.height(24.dp))
-
             Text(
                 "Identificação da conta",
                 fontWeight = FontWeight.Bold,
@@ -861,13 +804,11 @@ fun PerfilCarteiraView(
                 "Este número identifica sua conta no aplicativo. " +
                         "Não é um código oficial emitido pelo hemocentro."
             )
-
             PoliticaItemText(
                 "Tipo sanguíneo",
                 "O dado exibido é o cadastrado na conta. " +
                         "Esta tela não comprova confirmação laboratorial."
             )
-
             PoliticaItemText(
                 "No atendimento",
                 "Apresente o documento solicitado pelo hemocentro. " +
@@ -879,10 +820,6 @@ fun PerfilCarteiraView(
         }
     }
 }
-
-// ==========================================
-// NOTIFICAÇÕES E PRIVACIDADE
-// ==========================================
 
 @Composable
 fun PerfilNotificacoesView(
@@ -912,7 +849,6 @@ fun PerfilPrivacidadeView(
     onLogout: () -> Unit
 ) {
     val context = LocalContext.current
-
     var mostrarExclusao by remember {
         mutableStateOf(false)
     }
@@ -977,12 +913,8 @@ fun PerfilPrivacidadeView(
 
     if (mostrarExclusao) {
         AlertDialog(
-            onDismissRequest = {
-                mostrarExclusao = false
-            },
-            title = {
-                Text("Exclusão de conta")
-            },
+            onDismissRequest = { mostrarExclusao = false },
+            title = { Text("Exclusão de conta") },
             text = {
                 Text(
                     "A exclusão de conta ainda não foi implementada. " +
@@ -991,9 +923,7 @@ fun PerfilPrivacidadeView(
             },
             confirmButton = {
                 TextButton(
-                    onClick = {
-                        mostrarExclusao = false
-                    }
+                    onClick = { mostrarExclusao = false }
                 ) {
                     Text("Entendi", color = PerfilVermelho)
                 }
@@ -1001,10 +931,6 @@ fun PerfilPrivacidadeView(
         )
     }
 }
-
-// ==========================================
-// AJUDA E SOBRE
-// ==========================================
 
 @Composable
 fun PerfilAjudaView(
@@ -1019,6 +945,11 @@ fun PerfilAjudaView(
         "Como atualizar meus dados?" to
                 "Acesse Perfil > Editar perfil. Para trocar o e-mail, " +
                 "informe também sua senha atual.",
+
+        "Como alterar minha senha?" to
+                "Acesse Perfil > Editar perfil. No final da tela, " +
+                "preencha a senha atual, a nova senha e a confirmação. " +
+                "Toque em Salvar nova senha e entre novamente.",
 
         "Por que o intervalo pode estar pendente?" to
                 "O cálculo depende das doações registradas e da regra " +
@@ -1083,10 +1014,7 @@ fun PerfilAjudaView(
                 onClick = onTriagem,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(
-                    "Abrir triagem",
-                    color = PerfilVermelho
-                )
+                Text("Abrir triagem", color = PerfilVermelho)
             }
 
             Spacer(modifier = Modifier.height(32.dp))
@@ -1144,10 +1072,7 @@ fun FaqCard(
 
                 if (btnText.isNotBlank()) {
                     TextButton(onClick = onBtnClick) {
-                        Text(
-                            btnText,
-                            color = PerfilVermelho
-                        )
+                        Text(btnText, color = PerfilVermelho)
                     }
                 }
             }
@@ -1195,13 +1120,11 @@ fun PerfilSobreView(
                 "Conectar doadores e hemocentros, apoiando " +
                         "a organização e o acompanhamento das doações."
             )
-
             PoliticaItemText(
                 "Projeto acadêmico",
                 "Aplicativo em desenvolvimento. Os recursos são " +
                         "integrados e validados por etapas."
             )
-
             PoliticaItemText(
                 "Documentação",
                 "Os documentos definitivos de termos de uso, " +
@@ -1211,10 +1134,6 @@ fun PerfilSobreView(
         }
     }
 }
-
-// ==========================================
-// COMPONENTES E FORMATAÇÃO
-// ==========================================
 
 private fun JSONObject?.textoPerfil(
     chave: String
@@ -1253,23 +1172,12 @@ private fun CampoEditarPerfil(
     readOnly: Boolean = false,
     onValueChange: (String) -> Unit
 ) {
-    OutlinedTextField(
+    CampoContaPerfil(
+        label = label,
         value = value,
-        onValueChange = onValueChange,
-        label = { Text(label) },
         enabled = enabled,
         readOnly = readOnly,
-        singleLine = true,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(bottom = 16.dp),
-        shape = RoundedCornerShape(12.dp),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = PerfilVermelho,
-            focusedLabelColor = PerfilVermelho,
-            unfocusedBorderColor = Color(0xFFE2E8F0),
-            disabledTextColor = PerfilTexto
-        )
+        onValueChange = onValueChange
     )
 }
 
@@ -1333,9 +1241,7 @@ fun MenuPerfilItem(
                 tint = PerfilCinza,
                 modifier = Modifier.size(24.dp)
             )
-
             Spacer(modifier = Modifier.width(16.dp))
-
             Text(
                 text,
                 fontSize = 16.sp,
@@ -1343,7 +1249,6 @@ fun MenuPerfilItem(
                 color = PerfilTexto,
                 modifier = Modifier.weight(1f)
             )
-
             Icon(
                 Icons.AutoMirrored.Filled.ArrowForwardIos,
                 contentDescription = null,
