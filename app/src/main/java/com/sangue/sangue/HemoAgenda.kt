@@ -58,6 +58,9 @@ fun HemoAgendaScreen(
     var selecionada by remember(usuarioId) {
         mutableStateOf<Long?>(null)
     }
+    var mostrarHorarios by remember(usuarioId) {
+        mutableStateOf(false)
+    }
     var carregando by remember(usuarioId) {
         mutableStateOf(false)
     }
@@ -115,6 +118,17 @@ fun HemoAgendaScreen(
         }
     }
 
+    if (mostrarHorarios) {
+        HemoHorariosScreen(
+            dataInicial = dia,
+            onNavigateBack = {
+                mostrarHorarios = false
+                atualizar++
+            }
+        )
+        return
+    }
+
     val reservaId = selecionada
 
     if (reservaId != null) {
@@ -133,7 +147,6 @@ fun HemoAgendaScreen(
     }
 
     val filtro = busca.trim()
-
     val visiveis = reservas.filter {
         filtro.isBlank() ||
                 it.nome.contains(filtro, ignoreCase = true) ||
@@ -192,7 +205,11 @@ fun HemoAgendaScreen(
         bottomBar = {
             NavigationBar(containerColor = Color(0xFFFDFBFC)) {
                 val destinos = listOf(
-                    Triple("Início", Icons.Outlined.Home, onNavigateToInicio),
+                    Triple(
+                        "Início",
+                        Icons.Outlined.Home,
+                        onNavigateToInicio
+                    ),
                     Triple(
                         "Agenda",
                         Icons.Outlined.CalendarToday,
@@ -291,7 +308,9 @@ fun HemoAgendaScreen(
                 OutlinedTextField(
                     value = busca,
                     onValueChange = { busca = it },
-                    label = { Text("Buscar nome, reserva ou horário") },
+                    label = {
+                        Text("Buscar nome, reserva ou horário")
+                    },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp)
@@ -313,6 +332,25 @@ fun HemoAgendaScreen(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Escanear check-in")
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                OutlinedButton(
+                    onClick = { mostrarHorarios = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Icon(
+                        Icons.Outlined.CalendarToday,
+                        contentDescription = null,
+                        tint = VermelhoAgendaReal
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Horários e vagas",
+                        color = VermelhoAgendaReal
+                    )
                 }
             }
 
@@ -340,7 +378,11 @@ fun HemoAgendaScreen(
                 }
             }
 
-            if (!carregando && erro == null && visiveis.isEmpty()) {
+            if (
+                !carregando &&
+                erro == null &&
+                visiveis.isEmpty()
+            ) {
                 item {
                     Text(
                         text = if (reservas.isEmpty()) {
@@ -358,9 +400,7 @@ fun HemoAgendaScreen(
                 key = { it.id }
             ) { reserva ->
                 OutlinedCard(
-                    onClick = {
-                        selecionada = reserva.id
-                    },
+                    onClick = { selecionada = reserva.id },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.outlinedCardColors(
