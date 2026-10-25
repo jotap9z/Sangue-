@@ -56,8 +56,10 @@ fun HemoHomeScreen(
     onNavigateToMais: () -> Unit = {},
     onNavigateToCriarChamado: () -> Unit = {}
 ) {
+    val acesso = LocalAcessoHemocentro.current
     val usuario = SangueApi.usuario
     val usuarioId = usuario?.optLong("id")
+
     val hemocentroId = usuario?.let {
         if (it.isNull("hemocentroId")) {
             null
@@ -74,6 +76,9 @@ fun HemoHomeScreen(
 
     val lifecycleOwner = LocalLifecycleOwner.current
 
+    var avisoChamados by remember {
+        mutableStateOf(false)
+    }
     var nomeHemocentro by remember(usuarioId, hemocentroId) {
         mutableStateOf<String?>(null)
     }
@@ -116,7 +121,6 @@ fun HemoHomeScreen(
         }
     }
 
-    // Renova os indicadores na virada do dia usada pela agenda da API.
     LaunchedEffect(usuarioId, hemocentroId) {
         while (true) {
             val proximaVirada = Calendar.getInstance(
@@ -138,12 +142,18 @@ fun HemoHomeScreen(
         }
     }
 
-    LaunchedEffect(usuarioId, hemocentroId, atualizar) {
+    LaunchedEffect(
+        usuarioId,
+        hemocentroId,
+        atualizar,
+        acesso.funcao,
+        acesso.permissao,
+        acesso.inicializar
+    ) {
         carregando = true
         erroInstituicao = null
         erroAgenda = null
         erroEstoque = null
-
         nomeHemocentro = null
         agenda = null
         estoque = null
@@ -157,6 +167,11 @@ fun HemoHomeScreen(
         ) {
             erroInstituicao =
                 "Entre com uma conta de hemocentro para acessar o painel."
+            carregando = false
+            return@LaunchedEffect
+        }
+
+        if (acesso.inicializar) {
             carregando = false
             return@LaunchedEffect
         }
@@ -189,6 +204,8 @@ fun HemoHomeScreen(
                 }
 
                 launch {
+                    if (!acesso.agenda) return@launch
+
                     try {
                         val reservas = SangueApi.lista(
                             caminho = "/api/hemocentros/me/agendamentos" +
@@ -227,6 +244,8 @@ fun HemoHomeScreen(
                 }
 
                 launch {
+                    if (!acesso.estoque) return@launch
+
                     try {
                         val resposta = SangueApi.objeto(
                             metodo = "GET",
@@ -286,60 +305,14 @@ fun HemoHomeScreen(
     Scaffold(
         containerColor = Color.White,
         bottomBar = {
-            NavigationBar(
-                containerColor = Color(0xFFFDFBFC)
-            ) {
-                val destinos = listOf(
-                    Triple(
-                        "Início",
-                        Icons.Outlined.Home,
-                        onNavigateToInicio
-                    ),
-                    Triple(
-                        "Agenda",
-                        Icons.Outlined.CalendarToday,
-                        onNavigateToAgenda
-                    ),
-                    Triple(
-                        "Estoque",
-                        Icons.Outlined.WaterDrop,
-                        onNavigateToEstoque
-                    ),
-                    Triple(
-                        "Chat",
-                        Icons.Outlined.ChatBubbleOutline,
-                        onNavigateToChat
-                    ),
-                    Triple(
-                        "Mais",
-                        Icons.Outlined.MoreHoriz,
-                        onNavigateToMais
-                    )
-                )
-
-                destinos.forEachIndexed { indice, destino ->
-                    NavigationBarItem(
-                        selected = indice == 0,
-                        onClick = destino.third,
-                        icon = {
-                            Icon(
-                                destino.second,
-                                contentDescription = destino.first
-                            )
-                        },
-                        label = {
-                            Text(destino.first, fontSize = 10.sp)
-                        },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = VermelhoPainelHemo,
-                            selectedTextColor = VermelhoPainelHemo,
-                            unselectedIconColor = CinzaPainelHemo,
-                            unselectedTextColor = CinzaPainelHemo,
-                            indicatorColor = Color(0xFFFEF2F2)
-                        )
-                    )
-                }
-            }
+            BarraNavegacaoHemo(
+                selecionado = "Início",
+                onInicio = onNavigateToInicio,
+                onAgenda = onNavigateToAgenda,
+                onEstoque = onNavigateToEstoque,
+                onChat = onNavigateToChat,
+                onMais = onNavigateToMais
+            )
         }
     ) { paddingValues ->
         Column(
@@ -350,15 +323,14 @@ fun HemoHomeScreen(
                 .padding(horizontal = 24.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(Modifier.height(8.dp))
 
             Text(
-                text = nomeHemocentro
-                    ?: if (carregando) {
-                        "Carregando instituição..."
-                    } else {
-                        "Hemocentro"
-                    },
+                text = nomeHemocentro ?: if (carregando) {
+                    "Carregando instituição..."
+                } else {
+                    "Hemocentro"
+                },
                 modifier = Modifier.fillMaxWidth(),
                 fontWeight = FontWeight.Bold,
                 color = TextoPainelHemo,
@@ -411,209 +383,256 @@ fun HemoHomeScreen(
 
             erroInstituicao?.let {
                 Text(
-                    text = it,
+                    it,
                     color = VermelhoPainelHemo,
                     fontSize = 13.sp
                 )
             }
 
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = VermelhoPainelHemo
-                ),
-                shape = RoundedCornerShape(20.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+            if (acesso.inicializar) {
+                Text(
+                    "Acesse Mais → Equipe e acessos para inicializar a equipe.",
+                    color = CinzaPainelHemo
+                )
+            }
+
+            if (acesso.agenda) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = VermelhoPainelHemo
+                    ),
+                    shape = RoundedCornerShape(20.dp)
                 ) {
-                    Text(
-                        text = "Agenda de ${dataPainelHemo(dataConsulta)}",
-                        color = Color.White.copy(alpha = 0.9f)
-                    )
-
-                    val resumo = agenda
-
-                    Text(
-                        text = if (resumo != null) {
-                            "${resumo.total} agendamentos"
-                        } else if (carregando) {
-                            "Carregando..."
-                        } else {
-                            "Consulta indisponível"
-                        },
-                        fontSize = 26.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color.White
-                    )
-
-                    if (resumo != null) {
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         Text(
-                            text = "${resumo.aguardandoChegada} " +
-                                    "aguardando chegada",
+                            "Agenda de ${dataPainelHemo(dataConsulta)}",
+                            color = Color.White.copy(alpha = 0.9f)
+                        )
+
+                        val resumo = agenda
+
+                        Text(
+                            text = if (resumo != null) {
+                                "${resumo.total} agendamentos"
+                            } else if (carregando) {
+                                "Carregando..."
+                            } else {
+                                "Consulta indisponível"
+                            },
+                            fontSize = 26.sp,
+                            fontWeight = FontWeight.ExtraBold,
                             color = Color.White
                         )
 
+                        if (resumo != null) {
+                            Text(
+                                "${resumo.aguardandoChegada} aguardando chegada",
+                                color = Color.White
+                            )
+
+                            Text(
+                                "O total inclui todos os status " +
+                                        "dos agendamentos dessa data.",
+                                fontSize = 12.sp,
+                                color = Color.White.copy(alpha = 0.9f)
+                            )
+                        }
+                    }
+                }
+
+                erroAgenda?.let {
+                    Text(
+                        it,
+                        color = VermelhoPainelHemo,
+                        fontSize = 13.sp
+                    )
+                }
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFFF8FAFC)
+                    ),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(20.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         Text(
-                            text = "O total inclui todos os status " +
-                                    "dos agendamentos dessa data.",
-                            fontSize = 12.sp,
-                            color = Color.White.copy(alpha = 0.9f)
+                            "Atendimentos da data",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
                         )
+
+                        val resumo = agenda
+
+                        if (resumo != null) {
+                            Text(
+                                "Chegadas registradas: " +
+                                        resumo.atendimentosIniciados,
+                                color = CinzaPainelHemo
+                            )
+
+                            Text(
+                                "Doações realizadas: " +
+                                        resumo.doacoesRealizadas,
+                                color = CinzaPainelHemo
+                            )
+                        } else {
+                            Text(
+                                text = if (carregando) {
+                                    "Consultando atendimentos..."
+                                } else {
+                                    "Não foi possível consultar os atendimentos."
+                                },
+                                color = CinzaPainelHemo
+                            )
+                        }
                     }
                 }
             }
 
-            erroAgenda?.let {
-                Text(
-                    text = it,
-                    color = VermelhoPainelHemo,
-                    fontSize = 13.sp
-                )
+            if (acesso.estoque) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFFF8FAFC)
+                    ),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(20.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            "Situação do estoque",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        val resumo = estoque
+
+                        if (resumo != null) {
+                            Text(
+                                "Tipos em situação crítica: ${resumo.criticos}",
+                                color = CinzaPainelHemo
+                            )
+
+                            Text(
+                                "Tipos com estoque baixo: ${resumo.baixos}",
+                                color = CinzaPainelHemo
+                            )
+
+                            Text(
+                                "Tipos sem estoque informado: " +
+                                        resumo.naoInformados,
+                                color = CinzaPainelHemo
+                            )
+                        } else {
+                            Text(
+                                text = if (carregando) {
+                                    "Consultando estoque..."
+                                } else {
+                                    "Não foi possível consultar o estoque."
+                                },
+                                color = CinzaPainelHemo
+                            )
+                        }
+                    }
+                }
+
+                erroEstoque?.let {
+                    Text(
+                        it,
+                        color = VermelhoPainelHemo,
+                        fontSize = 13.sp
+                    )
+                }
             }
 
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFFF8FAFC)
-                ),
-                shape = RoundedCornerShape(16.dp)
+            if (
+                acesso.agenda ||
+                acesso.estoque ||
+                acesso.emitirChamado
             ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    if (acesso.agenda) {
+                        HemoAcaoQuadrada(
+                            texto = "Agenda",
+                            icone = Icons.Outlined.CalendarMonth,
+                            modifier = Modifier.weight(1f),
+                            onClick = onNavigateToAgenda
+                        )
+                    }
+
+                    if (acesso.estoque) {
+                        HemoAcaoQuadrada(
+                            texto = "Estoque",
+                            icone = Icons.Outlined.WaterDrop,
+                            modifier = Modifier.weight(1f),
+                            onClick = onNavigateToEstoque
+                        )
+                    }
+
+                    if (acesso.emitirChamado) {
+                        HemoAcaoQuadrada(
+                            texto = "Emergência",
+                            icone = Icons.Outlined.WarningAmber,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            avisoChamados = true
+                        }
+                    }
+                }
+            }
+
+            if (acesso.emitirChamado) {
+                Button(
+                    onClick = { avisoChamados = true },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 56.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = VermelhoPainelHemo
+                    ),
+                    shape = RoundedCornerShape(16.dp)
                 ) {
                     Text(
-                        "Atendimentos da data",
-                        fontSize = 18.sp,
+                        "Criar chamado emergencial",
                         fontWeight = FontWeight.Bold
                     )
-
-                    val resumo = agenda
-
-                    if (resumo != null) {
-                        Text(
-                            "Chegadas registradas: " +
-                                    resumo.atendimentosIniciados,
-                            color = CinzaPainelHemo
-                        )
-
-                        Text(
-                            "Doações realizadas: " +
-                                    resumo.doacoesRealizadas,
-                            color = CinzaPainelHemo
-                        )
-                    } else {
-                        Text(
-                            text = if (carregando) {
-                                "Consultando atendimentos..."
-                            } else {
-                                "Não foi possível consultar os atendimentos."
-                            },
-                            color = CinzaPainelHemo
-                        )
-                    }
                 }
             }
 
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFFF8FAFC)
-                ),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        "Situação do estoque",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-
-                    val resumo = estoque
-
-                    if (resumo != null) {
-                        Text(
-                            "Tipos em situação crítica: ${resumo.criticos}",
-                            color = CinzaPainelHemo
-                        )
-
-                        Text(
-                            "Tipos com estoque baixo: ${resumo.baixos}",
-                            color = CinzaPainelHemo
-                        )
-
-                        Text(
-                            "Tipos sem estoque informado: " +
-                                    resumo.naoInformados,
-                            color = CinzaPainelHemo
-                        )
-                    } else {
-                        Text(
-                            text = if (carregando) {
-                                "Consultando estoque..."
-                            } else {
-                                "Não foi possível consultar o estoque."
-                            },
-                            color = CinzaPainelHemo
-                        )
-                    }
-                }
-            }
-
-            erroEstoque?.let {
-                Text(
-                    text = it,
-                    color = VermelhoPainelHemo,
-                    fontSize = 13.sp
-                )
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                HemoAcaoQuadrada(
-                    "Agenda",
-                    Icons.Outlined.CalendarMonth,
-                    onNavigateToAgenda
-                )
-
-                HemoAcaoQuadrada(
-                    "Estoque",
-                    Icons.Outlined.WaterDrop,
-                    onNavigateToEstoque
-                )
-
-                HemoAcaoQuadrada(
-                    "Emergência",
-                    Icons.Outlined.WarningAmber,
-                    onNavigateToCriarChamado
-                )
-            }
-
-            Button(
-                onClick = onNavigateToCriarChamado,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 56.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = VermelhoPainelHemo
-                ),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Text(
-                    "Criar chamado emergencial",
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(Modifier.height(16.dp))
         }
+    }
+
+    if (avisoChamados) {
+        AlertDialog(
+            onDismissRequest = { avisoChamados = false },
+            title = { Text("Chamados emergenciais") },
+            text = {
+                Text(
+                    "A criação de chamados ainda não está disponível no aplicativo."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { avisoChamados = false }
+                ) {
+                    Text("Entendi")
+                }
+            }
+        )
     }
 }
 
@@ -623,9 +642,24 @@ fun HemoAcaoQuadrada(
     icone: ImageVector,
     onClick: () -> Unit
 ) {
+    HemoAcaoQuadrada(
+        texto = texto,
+        icone = icone,
+        modifier = Modifier,
+        onClick = onClick
+    )
+}
+
+@Composable
+fun HemoAcaoQuadrada(
+    texto: String,
+    icone: ImageVector,
+    modifier: Modifier,
+    onClick: () -> Unit
+) {
     Card(
-        modifier = Modifier
-            .size(100.dp)
+        modifier = modifier
+            .fillMaxWidth()
             .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(
             containerColor = Color.White
@@ -638,7 +672,13 @@ fun HemoAcaoQuadrada(
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
         Column(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 100.dp)
+                .padding(
+                    horizontal = 8.dp,
+                    vertical = 16.dp
+                ),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -649,13 +689,14 @@ fun HemoAcaoQuadrada(
                 modifier = Modifier.size(32.dp)
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(Modifier.height(8.dp))
 
             Text(
                 texto,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
-                color = TextoPainelHemo
+                color = TextoPainelHemo,
+                textAlign = TextAlign.Center
             )
         }
     }

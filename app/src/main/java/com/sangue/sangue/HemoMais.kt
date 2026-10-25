@@ -7,7 +7,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -42,6 +41,8 @@ fun HemoMaisScreen(
     onNavigateToMais: () -> Unit = {},
     onLogout: () -> Unit = {}
 ) {
+    val acesso = LocalAcessoHemocentro.current
+    val recarregarAcesso = LocalRecarregarAcessoHemo.current
     val usuarioId = SangueApi.usuario?.optLong("id")
     val scope = rememberCoroutineScope()
 
@@ -78,8 +79,8 @@ fun HemoMaisScreen(
 
         try {
             instituicao = SangueApi.objeto(
-                metodo = "GET",
-                caminho = "/api/hemocentros/me"
+                "GET",
+                "/api/hemocentros/me"
             )
         } catch (exception: CancellationException) {
             throw exception
@@ -92,9 +93,7 @@ fun HemoMaisScreen(
     }
 
     BackHandler(enabled = tela == TelaMaisReal.MENU) {
-        if (!saindo) {
-            onNavigateToInicio()
-        }
+        if (!saindo) onNavigateToInicio()
     }
 
     when (tela) {
@@ -114,26 +113,33 @@ fun HemoMaisScreen(
                 onNavigateBack = {
                     tela = TelaMaisReal.MENU
                     atualizar++
+                    recarregarAcesso()
                 }
             )
             return
         }
 
         TelaMaisReal.HORARIOS -> {
-            HemoHorariosScreen(
-                dataInicial = SimpleDateFormat(
-                    "yyyy-MM-dd",
-                    Locale.ROOT
-                ).apply {
-                    timeZone = TimeZone.getTimeZone(
-                        "America/Sao_Paulo"
-                    )
-                }.format(java.util.Date()),
-                onNavigateBack = {
+            if (acesso.editarHorarios) {
+                HemoHorariosScreen(
+                    dataInicial = SimpleDateFormat(
+                        "yyyy-MM-dd",
+                        Locale.ROOT
+                    ).apply {
+                        timeZone = TimeZone.getTimeZone(
+                            "America/Sao_Paulo"
+                        )
+                    }.format(java.util.Date()),
+                    onNavigateBack = {
+                        tela = TelaMaisReal.MENU
+                    }
+                )
+                return
+            } else {
+                LaunchedEffect(Unit) {
                     tela = TelaMaisReal.MENU
                 }
-            )
-            return
+            }
         }
 
         TelaMaisReal.PERFIL -> {
@@ -145,8 +151,7 @@ fun HemoMaisScreen(
                 containerColor = Color.White,
                 topBar = {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth()
                             .padding(top = 24.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -157,10 +162,9 @@ fun HemoMaisScreen(
                         ) {
                             Icon(
                                 Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Voltar"
+                                "Voltar"
                             )
                         }
-
                         Text(
                             "Perfil da instituição",
                             fontSize = 20.sp,
@@ -170,8 +174,7 @@ fun HemoMaisScreen(
                 }
             ) { padding ->
                 Column(
-                    modifier = Modifier
-                        .fillMaxSize()
+                    modifier = Modifier.fillMaxSize()
                         .padding(padding)
                         .verticalScroll(rememberScrollState())
                         .padding(24.dp),
@@ -196,7 +199,6 @@ fun HemoMaisScreen(
                                 titulo,
                                 fontWeight = FontWeight.Bold
                             )
-
                             Text(
                                 if (dados.isNull(campo)) {
                                     "Não informado"
@@ -221,7 +223,6 @@ fun HemoMaisScreen(
                     }
                 }
             }
-
             return
         }
 
@@ -231,65 +232,19 @@ fun HemoMaisScreen(
     Scaffold(
         containerColor = Color.White,
         bottomBar = {
-            NavigationBar(containerColor = Color(0xFFFDFBFC)) {
-                val destinos = listOf(
-                    Triple(
-                        "Início",
-                        Icons.Outlined.Home,
-                        onNavigateToInicio
-                    ),
-                    Triple(
-                        "Agenda",
-                        Icons.Outlined.CalendarToday,
-                        onNavigateToAgenda
-                    ),
-                    Triple(
-                        "Estoque",
-                        Icons.Outlined.WaterDrop,
-                        onNavigateToEstoque
-                    ),
-                    Triple(
-                        "Chat",
-                        Icons.Outlined.ChatBubbleOutline,
-                        onNavigateToChat
-                    ),
-                    Triple(
-                        "Mais",
-                        Icons.Outlined.MoreHoriz,
-                        onNavigateToMais
-                    )
-                )
-
-                destinos.forEachIndexed { indice, destino ->
-                    NavigationBarItem(
-                        selected = indice == 4,
-                        onClick = {
-                            if (!saindo) {
-                                destino.third()
-                            }
-                        },
-                        icon = {
-                            Icon(
-                                destino.second,
-                                contentDescription = destino.first
-                            )
-                        },
-                        label = {
-                            Text(destino.first, fontSize = 10.sp)
-                        },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = VermelhoMaisReal,
-                            selectedTextColor = VermelhoMaisReal,
-                            indicatorColor = Color(0xFFFEF2F2)
-                        )
-                    )
-                }
-            }
+            BarraNavegacaoHemo(
+                selecionado = "Mais",
+                onInicio = onNavigateToInicio,
+                onAgenda = onNavigateToAgenda,
+                onEstoque = onNavigateToEstoque,
+                onChat = onNavigateToChat,
+                onMais = onNavigateToMais,
+                enabled = !saindo
+            )
         }
     ) { padding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
+            modifier = Modifier.fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
                 .padding(24.dp),
@@ -319,12 +274,10 @@ fun HemoMaisScreen(
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
                     )
-
                     Text(
                         "Conta conectada: " +
                                 SangueApi.usuario?.optString("nome").orEmpty()
                     )
-
                     Text(
                         SangueApi.usuario?.optString("email").orEmpty(),
                         color = Color(0xFF64748B)
@@ -333,10 +286,7 @@ fun HemoMaisScreen(
             }
 
             erro?.let {
-                Text(
-                    text = it,
-                    color = VermelhoMaisReal
-                )
+                Text(it, color = VermelhoMaisReal)
             }
 
             ItemMaisReal(
@@ -349,26 +299,36 @@ fun HemoMaisScreen(
 
             ItemMaisReal(
                 "Equipe e acessos",
-                "Inicializar equipe, cadastrar funcionários e gerenciar acessos",
+                if (acesso.inicializar) {
+                    "Inicializar a equipe da instituição"
+                } else if (acesso.administrador) {
+                    "Cadastrar funcionários e gerenciar acessos"
+                } else {
+                    "Consultar sua função e permissão"
+                },
                 !saindo
             ) {
                 tela = TelaMaisReal.EQUIPE
             }
 
-            ItemMaisReal(
-                "Administrador principal",
-                "Consultar o administrador real e transferir a função",
-                !saindo
-            ) {
-                tela = TelaMaisReal.EQUIPE
+            if (acesso.administrador) {
+                ItemMaisReal(
+                    "Administrador principal",
+                    "Consultar o administrador real e transferir a função",
+                    !saindo
+                ) {
+                    tela = TelaMaisReal.EQUIPE
+                }
             }
 
-            ItemMaisReal(
-                "Horários e vagas",
-                "Cadastrar horários e controlar novas reservas",
-                !saindo
-            ) {
-                tela = TelaMaisReal.HORARIOS
+            if (acesso.editarHorarios) {
+                ItemMaisReal(
+                    "Horários e vagas",
+                    "Cadastrar horários e controlar novas reservas",
+                    !saindo
+                ) {
+                    tela = TelaMaisReal.HORARIOS
+                }
             }
 
             ItemMaisReal(
@@ -413,9 +373,7 @@ fun HemoMaisScreen(
 
     if (confirmarSaida) {
         AlertDialog(
-            onDismissRequest = {
-                confirmarSaida = false
-            },
+            onDismissRequest = { confirmarSaida = false },
             title = { Text("Sair da conta?") },
             text = {
                 Text("Você poderá entrar novamente com seu e-mail e senha.")
@@ -446,9 +404,7 @@ fun HemoMaisScreen(
             },
             dismissButton = {
                 TextButton(
-                    onClick = {
-                        confirmarSaida = false
-                    }
+                    onClick = { confirmarSaida = false }
                 ) {
                     Text("Voltar")
                 }
@@ -495,7 +451,6 @@ private fun ItemMaisReal(
                 fontSize = 17.sp,
                 fontWeight = FontWeight.Bold
             )
-
             Text(
                 descricao,
                 color = Color(0xFF64748B),

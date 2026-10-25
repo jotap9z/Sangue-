@@ -7,250 +7,351 @@ import androidx.navigation.compose.rememberNavController
 
 @Composable
 fun AppNavigation() {
-    // Controlador central que guarda o histórico de telas
     val navController = rememberNavController()
 
-    // O aplicativo inicia pela Landing Page
-    NavHost(navController = navController, startDestination = "landing_page") {
+    fun voltarHomeHemo() {
+        navController.navigate("hemo_home") {
+            popUpTo("hemo_home") { inclusive = true }
+            launchSingleTop = true
+        }
+    }
 
-        // ==========================================
-        // 0. AUTENTICAÇÃO E CADASTRO
-        // ==========================================
+    fun voltarLogin() {
+        navController.navigate("landing_page") {
+            popUpTo(0)
+        }
+    }
+
+    fun inicioHemo() {
+        navController.navigate("hemo_home") {
+            popUpTo("hemo_home")
+        }
+    }
+
+    NavHost(
+        navController = navController,
+        startDestination = "landing_page"
+    ) {
         composable("auth") {
             AuthScreen(
                 onLoginSuccess = { isHemocentro ->
-                    if (isHemocentro) {
-                        navController.navigate("hemo_home") {
-                            popUpTo("auth") { inclusive = true }
-                        }
-                    } else {
-                        navController.navigate("home") {
-                            popUpTo("auth") { inclusive = true }
-                        }
+                    navController.navigate(
+                        if (isHemocentro) "hemo_home" else "home"
+                    ) {
+                        popUpTo("auth") { inclusive = true }
                     }
                 }
             )
         }
 
-        // ==========================================
-        // 1. LANDING PAGE (Início do Aplicativo)
-        // ==========================================
         composable("landing_page") {
             LandPageScreen(
-                onNavigateToLogin = { navController.navigate("auth") },
-                onNavigateToCheckin = { navController.navigate("checkin") },
-                onNavigateToEmergencia = { navController.navigate("emergencia") },
-                onNavigateToHistorico = { navController.navigate("historico") },
-                onNavigateToPerfil = { navController.navigate("perfil") }
+                onNavigateToLogin = {
+                    navController.navigate("auth")
+                },
+                onNavigateToCheckin = {
+                    navController.navigate("checkin")
+                },
+                onNavigateToEmergencia = {
+                    navController.navigate("emergencia")
+                },
+                onNavigateToHistorico = {
+                    navController.navigate("historico")
+                },
+                onNavigateToPerfil = {
+                    navController.navigate("perfil")
+                }
             )
         }
 
-        // ==========================================
-        // 2. HOME DASHBOARD (Doador)
-        // ==========================================
         composable("home") {
             HomeScreen(
-                onNavigateToInicio = { /* Já está na home */ },
-                onNavigateToVerificacao = { navController.navigate("posso_doar") },
-                onNavigateToCheckin = { navController.navigate("checkin") },
-                onNavigateToEmergencia = { navController.navigate("emergencia") },
-                onNavigateToHistorico = { navController.navigate("historico") },
-                onNavigateToPerfil = { navController.navigate("perfil") },
-                onNavigateToEstoque = { navController.navigate("estoque") },
-                onNavigateToHemocentros = { navController.navigate("hemocentros") },
+                onNavigateToInicio = {},
+                onNavigateToVerificacao = {
+                    navController.navigate("posso_doar")
+                },
+                onNavigateToCheckin = {
+                    navController.navigate("checkin")
+                },
+                onNavigateToEmergencia = {
+                    navController.navigate("emergencia")
+                },
+                onNavigateToHistorico = {
+                    navController.navigate("historico")
+                },
+                onNavigateToPerfil = {
+                    navController.navigate("perfil")
+                },
+                onNavigateToEstoque = {
+                    navController.navigate("estoque")
+                },
+                onNavigateToHemocentros = {
+                    navController.navigate("hemocentros")
+                }
             )
         }
 
-        // ==========================================
-        // 3. CHECK-IN
-        // ==========================================
         composable("checkin") {
             CheckInScreen(
-                onNavigateBack = { navController.popBackStack() },
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
                 onNavigateHome = {
                     navController.navigate("home") {
                         popUpTo("home") { inclusive = true }
                     }
-                },
+                }
             )
         }
 
-        // ==========================================
-        // 4. PERFIL
-        // ==========================================
         composable("perfil") {
             PerfilScreen(
-                onNavigateBack = { navController.popBackStack() },
-                onLogout = {
-                    navController.navigate("landing_page") {
-                        popUpTo(0) // Limpa tudo e volta para a tela inicial
-                    }
+                onNavigateBack = {
+                    navController.popBackStack()
                 },
-                onNavigateToTriagem = { navController.navigate("posso_doar") }
+                onLogout = { voltarLogin() },
+                onNavigateToTriagem = {
+                    navController.navigate("posso_doar")
+                }
             )
         }
 
-        // ==========================================
-        // 5. CONQUISTAS
-        // ==========================================
         composable("conquistas") {
-            ConquistasScreen { navController.popBackStack() }
+            ConquistasScreen {
+                navController.popBackStack()
+            }
         }
 
-        // ==========================================
-        // 6. POSSO DOAR? (Triagem)
-        // ==========================================
         composable("posso_doar") {
             PossoDoarScreen(
-                onNavigateToResultado = { navController.navigate("resultado") },
-            ) { navController.popBackStack() }
+                onNavigateToResultado = {
+                    navController.navigate("resultado")
+                }
+            ) {
+                navController.popBackStack()
+            }
         }
 
-        // ==========================================
-        // 7. RESULTADO (Apto)
-        // ==========================================
         composable("resultado") {
             ResultadoScreen(
-                onNavigateBack = { navController.popBackStack() },
-                onNavigateToAgendamento = { navController.navigate("agendamento") },
-            ) { navController.navigate("hemocentros") }
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onNavigateToAgendamento = {
+                    navController.navigate("agendamento")
+                }
+            ) {
+                navController.navigate("hemocentros")
+            }
         }
 
-        // ==========================================
-        // 8. RESULTADO NEGATIVO (Não apto)
-        // ==========================================
         composable("resultado_negativo") {
             ResultadoNegativoScreen(
-                onNavigateBack = { navController.popBackStack() },
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
                 onNavigateHome = {
                     navController.navigate("home") {
                         popUpTo("home") { inclusive = true }
                     }
-                },
+                }
             )
         }
 
-        // ==========================================
-        // 9. AGENDAMENTO
-        // ==========================================
         composable("agendamento") {
             AgendamentoScreen(
-                onNavigateBack = { navController.popBackStack() },
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
                 onNavigateHome = {
                     navController.navigate("home") {
                         popUpTo("home") { inclusive = true }
                     }
                 },
                 onNavigateToCheckin = {
-                    navController.navigate("checkin") { popUpTo("home") }
-                },
-            )
-        }
-
-        // ==========================================
-        // 10. EMERGÊNCIA
-        // ==========================================
-        composable("emergencia") {
-            EmergenciaScreen(
-                onNavigateBack = { navController.popBackStack() },
-            ) { navController.navigate("agendamento") }
-        }
-
-        // ==========================================
-        // 11. HISTÓRICO
-        // ==========================================
-        composable("historico") {
-            HistoricoScreen { navController.popBackStack() }
-        }
-
-        // ==========================================
-        // 12. ESTOQUE DE SANGUE
-        // ==========================================
-        composable("estoque") {
-            EstoqueScreen(
-                onNavigateBack = { navController.popBackStack() },
-            ) { navController.navigate("posso_doar") }
-        }
-
-        // ==========================================
-        // 13. HEMOCENTROS PRÓXIMOS
-        // ==========================================
-        composable("hemocentros") {
-            HemocentrosScreen(
-                onNavigateBack = { navController.popBackStack() },
-            ) { navController.navigate("posso_doar") }
-        }
-
-        // ==========================================
-        // 14. HOME HEMOCENTRO
-        // ==========================================
-        composable("hemo_home") {
-            HemoHomeScreen(
-                onNavigateToInicio = { /* Já está na home do hemo */ },
-                onNavigateToAgenda = { navController.navigate("hemo_agenda") },
-                onNavigateToEstoque = { navController.navigate("hemo_estoque") },
-                onNavigateToChat = { navController.navigate("hemo_chat") },
-                onNavigateToMais = { navController.navigate("hemo_mais") },
-                onNavigateToCriarChamado = { navController.navigate("hemo_estoque") }
-            )
-        }
-
-        // ==========================================
-        // 15. TELAS DO HEMOCENTRO
-        // ==========================================
-        composable("hemo_agenda") {
-            HemoAgendaScreen(
-                onNavigateBack = { navController.popBackStack() },
-                onNavigateToInicio = { navController.navigate("hemo_home") { popUpTo("hemo_home") } },
-                onNavigateToAgenda = { /* Já está aqui */ },
-                onNavigateToEstoque = { navController.navigate("hemo_estoque") },
-                onNavigateToChat = { navController.navigate("hemo_chat") },
-                onNavigateToMais = { navController.navigate("hemo_mais") },
-                onNavigateToEscanear = { navController.navigate("hemo_scanner") }
-            )
-        }
-
-        composable("hemo_scanner") {
-            HemoScannerScreen(
-                onNavigateBack = { navController.popBackStack() }
-            )
-        }
-
-        composable("hemo_estoque") {
-            HemoEstoqueScreen(
-                onNavigateBack = { navController.popBackStack() },
-                onNavigateToInicio = { navController.navigate("hemo_home") { popUpTo("hemo_home") } },
-                onNavigateToAgenda = { navController.navigate("hemo_agenda") },
-                onNavigateToEstoque = { /* Já está aqui */ },
-                onNavigateToChat = { navController.navigate("hemo_chat") },
-                onNavigateToMais = { navController.navigate("hemo_mais") }
-            )
-        }
-
-        composable("hemo_chat") {
-            HemoChatScreen(
-                onNavigateBack = { navController.popBackStack() },
-                onNavigateToInicio = { navController.navigate("hemo_home") { popUpTo("hemo_home") } },
-                onNavigateToAgenda = { navController.navigate("hemo_agenda") },
-                onNavigateToEstoque = { navController.navigate("hemo_estoque") },
-                onNavigateToChat = { /* Já está no chat */ },
-                onNavigateToMais = { navController.navigate("hemo_mais") }
-            )
-        }
-
-        composable("hemo_mais") {
-            HemoMaisScreen(
-                onNavigateToInicio = { navController.navigate("hemo_home") { popUpTo("hemo_home") } },
-                onNavigateToAgenda = { navController.navigate("hemo_agenda") },
-                onNavigateToEstoque = { navController.navigate("hemo_estoque") },
-                onNavigateToChat = { navController.navigate("hemo_chat") },
-                onNavigateToMais = { /* Já está aqui */ },
-                onLogout = {
-                    navController.navigate("landing_page") {
-                        popUpTo(0) // Limpa tudo e volta para a tela inicial
+                    navController.navigate("checkin") {
+                        popUpTo("home")
                     }
                 }
             )
+        }
+
+        composable("emergencia") {
+            EmergenciaScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            ) {
+                navController.navigate("agendamento")
+            }
+        }
+
+        composable("historico") {
+            HistoricoScreen {
+                navController.popBackStack()
+            }
+        }
+
+        composable("estoque") {
+            EstoqueScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            ) {
+                navController.navigate("posso_doar")
+            }
+        }
+
+        composable("hemocentros") {
+            HemocentrosScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            ) {
+                navController.navigate("posso_doar")
+            }
+        }
+
+        composable("hemo_home") {
+            AreaHemocentro(
+                destino = "hemo_home",
+                onVoltar = { voltarHomeHemo() },
+                onLogout = { voltarLogin() }
+            ) {
+                HemoHomeScreen(
+                    onNavigateToInicio = {},
+                    onNavigateToAgenda = {
+                        navController.navigate("hemo_agenda")
+                    },
+                    onNavigateToEstoque = {
+                        navController.navigate("hemo_estoque")
+                    },
+                    onNavigateToChat = {
+                        navController.navigate("hemo_chat")
+                    },
+                    onNavigateToMais = {
+                        navController.navigate("hemo_mais")
+                    },
+                    onNavigateToCriarChamado = {
+                        navController.navigate("hemo_estoque")
+                    }
+                )
+            }
+        }
+
+        composable("hemo_agenda") {
+            AreaHemocentro(
+                destino = "hemo_agenda",
+                onVoltar = { voltarHomeHemo() },
+                onLogout = { voltarLogin() }
+            ) {
+                HemoAgendaScreen(
+                    onNavigateBack = {
+                        navController.popBackStack()
+                    },
+                    onNavigateToInicio = { inicioHemo() },
+                    onNavigateToAgenda = {},
+                    onNavigateToEstoque = {
+                        navController.navigate("hemo_estoque")
+                    },
+                    onNavigateToChat = {
+                        navController.navigate("hemo_chat")
+                    },
+                    onNavigateToMais = {
+                        navController.navigate("hemo_mais")
+                    },
+                    onNavigateToEscanear = {
+                        navController.navigate("hemo_scanner")
+                    }
+                )
+            }
+        }
+
+        composable("hemo_scanner") {
+            AreaHemocentro(
+                destino = "hemo_scanner",
+                onVoltar = { voltarHomeHemo() },
+                onLogout = { voltarLogin() }
+            ) {
+                HemoScannerScreen(
+                    onNavigateBack = {
+                        navController.popBackStack()
+                    }
+                )
+            }
+        }
+
+        composable("hemo_estoque") {
+            AreaHemocentro(
+                destino = "hemo_estoque",
+                onVoltar = { voltarHomeHemo() },
+                onLogout = { voltarLogin() }
+            ) {
+                HemoEstoqueConsultaScreen(
+                    onNavigateBack = {
+                        navController.popBackStack()
+                    },
+                    onNavigateToInicio = { inicioHemo() },
+                    onNavigateToAgenda = {
+                        navController.navigate("hemo_agenda")
+                    },
+                    onNavigateToEstoque = {},
+                    onNavigateToChat = {
+                        navController.navigate("hemo_chat")
+                    },
+                    onNavigateToMais = {
+                        navController.navigate("hemo_mais")
+                    }
+                )
+            }
+        }
+
+        composable("hemo_chat") {
+            AreaHemocentro(
+                destino = "hemo_chat",
+                onVoltar = { voltarHomeHemo() },
+                onLogout = { voltarLogin() }
+            ) {
+                HemoChatScreen(
+                    onNavigateBack = {
+                        navController.popBackStack()
+                    },
+                    onNavigateToInicio = { inicioHemo() },
+                    onNavigateToAgenda = {
+                        navController.navigate("hemo_agenda")
+                    },
+                    onNavigateToEstoque = {
+                        navController.navigate("hemo_estoque")
+                    },
+                    onNavigateToChat = {},
+                    onNavigateToMais = {
+                        navController.navigate("hemo_mais")
+                    }
+                )
+            }
+        }
+
+        composable("hemo_mais") {
+            AreaHemocentro(
+                destino = "hemo_mais",
+                onVoltar = { voltarHomeHemo() },
+                onLogout = { voltarLogin() }
+            ) {
+                HemoMaisScreen(
+                    onNavigateToInicio = { inicioHemo() },
+                    onNavigateToAgenda = {
+                        navController.navigate("hemo_agenda")
+                    },
+                    onNavigateToEstoque = {
+                        navController.navigate("hemo_estoque")
+                    },
+                    onNavigateToChat = {
+                        navController.navigate("hemo_chat")
+                    },
+                    onNavigateToMais = {},
+                    onLogout = { voltarLogin() }
+                )
+            }
         }
     }
 }

@@ -43,15 +43,14 @@ fun HemoAgendaScreen(
     onNavigateToChat: () -> Unit = {},
     onNavigateToMais: () -> Unit = {}
 ) {
+    val acesso = LocalAcessoHemocentro.current
     val usuarioId = SangueApi.usuario?.optLong("id")
     val lifecycleOwner = LocalLifecycleOwner.current
 
     var dia by remember(usuarioId) {
         mutableStateOf(hojeAgendaReal())
     }
-    var busca by remember(usuarioId) {
-        mutableStateOf("")
-    }
+    var busca by remember(usuarioId) { mutableStateOf("") }
     var reservas by remember(usuarioId) {
         mutableStateOf<List<ReservaAgendaReal>>(emptyList())
     }
@@ -73,13 +72,9 @@ fun HemoAgendaScreen(
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                atualizar++
-            }
+            if (event == Lifecycle.Event.ON_RESUME) atualizar++
         }
-
         lifecycleOwner.lifecycle.addObserver(observer)
-
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
         }
@@ -95,8 +90,7 @@ fun HemoAgendaScreen(
                 erro = "Entre com a conta do hemocentro."
             } else {
                 reservas = SangueApi.lista(
-                    caminho = "/api/hemocentros/me/agendamentos" +
-                            "?de=$dia&ate=$dia"
+                    "/api/hemocentros/me/agendamentos?de=$dia&ate=$dia"
                 ).map {
                     ReservaAgendaReal(
                         id = it.getLong("id"),
@@ -118,7 +112,7 @@ fun HemoAgendaScreen(
         }
     }
 
-    if (mostrarHorarios) {
+    if (mostrarHorarios && acesso.editarHorarios) {
         HemoHorariosScreen(
             dataInicial = dia,
             onNavigateBack = {
@@ -140,7 +134,7 @@ fun HemoAgendaScreen(
             },
             onEscanear = {
                 selecionada = null
-                onNavigateToEscanear()
+                if (acesso.checkin) onNavigateToEscanear()
             }
         )
         return
@@ -158,25 +152,23 @@ fun HemoAgendaScreen(
         containerColor = Color.White,
         topBar = {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(
-                        top = 24.dp,
-                        bottom = 12.dp,
-                        start = 12.dp,
-                        end = 12.dp
-                    ),
+                modifier = Modifier.fillMaxWidth().padding(
+                    top = 24.dp,
+                    bottom = 12.dp,
+                    start = 12.dp,
+                    end = 12.dp
+                ),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = onNavigateBack) {
                     Icon(
                         Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Voltar"
+                        "Voltar"
                     )
                 }
 
                 Text(
-                    text = "Agendamentos",
+                    "Agendamentos",
                     modifier = Modifier.weight(1f),
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold
@@ -188,77 +180,35 @@ fun HemoAgendaScreen(
                 ) {
                     Icon(
                         Icons.Outlined.Refresh,
-                        contentDescription = "Atualizar agenda",
+                        "Atualizar agenda",
                         tint = VermelhoAgendaReal
                     )
                 }
 
-                IconButton(onClick = onNavigateToEscanear) {
-                    Icon(
-                        Icons.Outlined.CropFree,
-                        contentDescription = "Escanear check-in",
-                        tint = VermelhoAgendaReal
-                    )
+                if (acesso.checkin) {
+                    IconButton(onClick = onNavigateToEscanear) {
+                        Icon(
+                            Icons.Outlined.CropFree,
+                            "Escanear check-in",
+                            tint = VermelhoAgendaReal
+                        )
+                    }
                 }
             }
         },
         bottomBar = {
-            NavigationBar(containerColor = Color(0xFFFDFBFC)) {
-                val destinos = listOf(
-                    Triple(
-                        "Início",
-                        Icons.Outlined.Home,
-                        onNavigateToInicio
-                    ),
-                    Triple(
-                        "Agenda",
-                        Icons.Outlined.CalendarToday,
-                        onNavigateToAgenda
-                    ),
-                    Triple(
-                        "Estoque",
-                        Icons.Outlined.WaterDrop,
-                        onNavigateToEstoque
-                    ),
-                    Triple(
-                        "Chat",
-                        Icons.Outlined.ChatBubbleOutline,
-                        onNavigateToChat
-                    ),
-                    Triple(
-                        "Mais",
-                        Icons.Outlined.MoreHoriz,
-                        onNavigateToMais
-                    )
-                )
-
-                destinos.forEachIndexed { indice, destino ->
-                    NavigationBarItem(
-                        selected = indice == 1,
-                        onClick = destino.third,
-                        icon = {
-                            Icon(
-                                destino.second,
-                                contentDescription = destino.first
-                            )
-                        },
-                        label = {
-                            Text(destino.first, fontSize = 10.sp)
-                        },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = VermelhoAgendaReal,
-                            selectedTextColor = VermelhoAgendaReal,
-                            indicatorColor = Color(0xFFFEF2F2)
-                        )
-                    )
-                }
-            }
+            BarraNavegacaoHemo(
+                selecionado = "Agenda",
+                onInicio = onNavigateToInicio,
+                onAgenda = onNavigateToAgenda,
+                onEstoque = onNavigateToEstoque,
+                onChat = onNavigateToChat,
+                onMais = onNavigateToMais
+            )
         }
     ) { paddingValues ->
         LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues),
+            modifier = Modifier.fillMaxSize().padding(paddingValues),
             contentPadding = PaddingValues(24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -278,7 +228,7 @@ fun HemoAgendaScreen(
                     }
 
                     Text(
-                        text = dataAgendaReal(dia),
+                        dataAgendaReal(dia),
                         fontWeight = FontWeight.Bold
                     )
 
@@ -317,49 +267,53 @@ fun HemoAgendaScreen(
                 )
             }
 
-            item {
-                Button(
-                    onClick = onNavigateToEscanear,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = VermelhoAgendaReal
-                    ),
-                    shape = RoundedCornerShape(14.dp)
-                ) {
-                    Icon(
-                        Icons.Outlined.CropFree,
-                        contentDescription = null
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Escanear check-in")
-                }
+            if (acesso.checkin || acesso.editarHorarios) {
+                item {
+                    if (acesso.checkin) {
+                        Button(
+                            onClick = onNavigateToEscanear,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = VermelhoAgendaReal
+                            ),
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Icon(
+                                Icons.Outlined.CropFree,
+                                contentDescription = null
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text("Escanear check-in")
+                        }
+                    }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                    if (acesso.editarHorarios) {
+                        Spacer(Modifier.height(8.dp))
 
-                OutlinedButton(
-                    onClick = { mostrarHorarios = true },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp)
-                ) {
-                    Icon(
-                        Icons.Outlined.CalendarToday,
-                        contentDescription = null,
-                        tint = VermelhoAgendaReal
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Horários e vagas",
-                        color = VermelhoAgendaReal
-                    )
+                        OutlinedButton(
+                            onClick = { mostrarHorarios = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Icon(
+                                Icons.Outlined.CalendarToday,
+                                contentDescription = null,
+                                tint = VermelhoAgendaReal
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "Horários e vagas",
+                                color = VermelhoAgendaReal
+                            )
+                        }
+                    }
                 }
             }
 
             if (carregando) {
                 item {
                     Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(24.dp),
+                        modifier = Modifier.fillMaxWidth().padding(24.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         CircularProgressIndicator(
@@ -371,18 +325,11 @@ fun HemoAgendaScreen(
 
             erro?.let { mensagem ->
                 item {
-                    Text(
-                        text = mensagem,
-                        color = VermelhoAgendaReal
-                    )
+                    Text(mensagem, color = VermelhoAgendaReal)
                 }
             }
 
-            if (
-                !carregando &&
-                erro == null &&
-                visiveis.isEmpty()
-            ) {
+            if (!carregando && erro == null && visiveis.isEmpty()) {
                 item {
                     Text(
                         text = if (reservas.isEmpty()) {
@@ -412,28 +359,22 @@ fun HemoAgendaScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = reserva.nome,
+                            reserva.nome,
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold
                         )
-
                         Text(
-                            text = "Reserva #${reserva.id}",
+                            "Reserva #${reserva.id}",
                             color = Color(0xFF64748B)
                         )
-
+                        Text(dataHoraAgendaReal(reserva.inicio))
                         Text(
-                            text = dataHoraAgendaReal(reserva.inicio)
-                        )
-
-                        Text(
-                            text = statusHemoReal(reserva.status),
+                            statusHemoReal(reserva.status),
                             color = VermelhoAgendaReal,
                             fontWeight = FontWeight.SemiBold
                         )
-
                         Text(
-                            text = "Abrir atendimento",
+                            "Abrir atendimento",
                             color = Color(0xFF64748B),
                             fontSize = 13.sp
                         )
@@ -445,22 +386,13 @@ fun HemoAgendaScreen(
 }
 
 private fun hojeAgendaReal(): String {
-    return SimpleDateFormat(
-        "yyyy-MM-dd",
-        Locale.ROOT
-    ).apply {
+    return SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).apply {
         timeZone = TimeZone.getTimeZone("America/Sao_Paulo")
     }.format(java.util.Date())
 }
 
-private fun moverDiaAgendaReal(
-    data: String,
-    dias: Int
-): String {
-    val formato = SimpleDateFormat(
-        "yyyy-MM-dd",
-        Locale.ROOT
-    ).apply {
+private fun moverDiaAgendaReal(data: String, dias: Int): String {
+    val formato = SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).apply {
         isLenient = false
         timeZone = TimeZone.getTimeZone("UTC")
     }
@@ -477,7 +409,6 @@ private fun moverDiaAgendaReal(
 
 internal fun dataAgendaReal(valor: String): String {
     val partes = valor.take(10).split("-")
-
     return if (partes.size == 3) {
         "${partes[2]}/${partes[1]}/${partes[0]}"
     } else {

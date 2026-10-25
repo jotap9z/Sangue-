@@ -37,6 +37,7 @@ fun HemoAtendimentoScreen(
     onNavigateBack: () -> Unit = {},
     onEscanear: () -> Unit = {}
 ) {
+    val acesso = LocalAcessoHemocentro.current
     val usuarioId = SangueApi.usuario?.optLong("id")
     val scope = rememberCoroutineScope()
 
@@ -99,7 +100,6 @@ fun HemoAtendimentoScreen(
         resposta.getJSONObject("atendimento")
         resposta.getJSONObject("respostas")
         resposta.getJSONObject("preTriagem")
-
         return resposta
     }
 
@@ -126,9 +126,7 @@ fun HemoAtendimentoScreen(
 
     fun executarAcao(acao: AcaoAtendimentoReal) {
         if (
-            processando ||
-            carregando ||
-            exigeConferencia ||
+            processando || carregando || exigeConferencia ||
             !SangueApi.autenticado
         ) {
             return
@@ -155,7 +153,12 @@ fun HemoAtendimentoScreen(
                 statusAtual == "APROVADO_TRIAGEM"
         }
 
-        if (!permiteAcao) return
+        val permiteFuncao = when (acao) {
+            AcaoAtendimentoReal.SEM_COLETA -> acesso.encerrar
+            else -> acesso.triagem
+        }
+
+        if (!permiteAcao || !permiteFuncao) return
 
         val observacao = observacaoTriagem.trim()
         val observacoes = observacoesColeta.trim()
@@ -215,8 +218,8 @@ fun HemoAtendimentoScreen(
 
         scope.launch {
             try {
-                val base = "/api/hemocentros/me/agendamentos/" +
-                        agendamentoId
+                val base =
+                    "/api/hemocentros/me/agendamentos/$agendamentoId"
 
                 when (acao) {
                     AcaoAtendimentoReal.APROVAR,
@@ -240,7 +243,6 @@ fun HemoAtendimentoScreen(
                             resposta.getLong("agendamentoId") ==
                                     agendamentoId
                         )
-
                         check(
                             resposta.getString("status") ==
                                     if (aprovado) {
@@ -322,8 +324,8 @@ fun HemoAtendimentoScreen(
             }
 
             try {
-                // Consulta o estado real mesmo se a resposta da
-                // alteração tiver sido perdida durante a conexão.
+                // Confere o estado real mesmo se a resposta da alteração
+                // tiver sido perdida durante a conexão.
                 detalhe = buscarDetalhes()
                 exigeConferencia = false
             } catch (exception: CancellationException) {
@@ -344,23 +346,19 @@ fun HemoAtendimentoScreen(
     val ocupado = carregando || processando
 
     BackHandler {
-        if (!processando) {
-            onNavigateBack()
-        }
+        if (!processando) onNavigateBack()
     }
 
     Scaffold(
         containerColor = Color.White,
         topBar = {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(
-                        top = 24.dp,
-                        bottom = 12.dp,
-                        start = 12.dp,
-                        end = 12.dp
-                    ),
+                modifier = Modifier.fillMaxWidth().padding(
+                    top = 24.dp,
+                    bottom = 12.dp,
+                    start = 12.dp,
+                    end = 12.dp
+                ),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(
@@ -369,12 +367,12 @@ fun HemoAtendimentoScreen(
                 ) {
                     Icon(
                         Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Voltar"
+                        "Voltar"
                     )
                 }
 
                 Text(
-                    text = "Atendimento #$agendamentoId",
+                    "Atendimento #$agendamentoId",
                     modifier = Modifier.weight(1f),
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp
@@ -386,7 +384,7 @@ fun HemoAtendimentoScreen(
                 ) {
                     Icon(
                         Icons.Outlined.Refresh,
-                        contentDescription = "Atualizar atendimento",
+                        "Atualizar atendimento",
                         tint = VermelhoAtendimentoReal
                     )
                 }
@@ -394,8 +392,7 @@ fun HemoAtendimentoScreen(
         }
     ) { paddingValues ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
+            modifier = Modifier.fillMaxSize()
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
                 .padding(24.dp),
@@ -423,17 +420,14 @@ fun HemoAtendimentoScreen(
 
             mensagem?.let {
                 Text(
-                    text = it,
+                    it,
                     color = Color(0xFF15803D),
                     fontWeight = FontWeight.SemiBold
                 )
             }
 
             erro?.let {
-                Text(
-                    text = it,
-                    color = VermelhoAtendimentoReal
-                )
+                Text(it, color = VermelhoAtendimentoReal)
             }
 
             if (exigeConferencia && !ocupado) {
@@ -470,24 +464,21 @@ fun HemoAtendimentoScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = doador.getString("nome"),
+                            doador.getString("nome"),
                             fontSize = 22.sp,
                             fontWeight = FontWeight.Bold
                         )
-
                         Text(
-                            text = dataHoraAgendaReal(
+                            dataHoraAgendaReal(
                                 reserva.getString("inicio")
                             )
                         )
-
                         Text(
-                            text = reserva.getString("nomeHemocentro"),
+                            reserva.getString("nomeHemocentro"),
                             color = CinzaAtendimentoReal
                         )
-
                         Text(
-                            text = statusHemoReal(status),
+                            statusHemoReal(status),
                             color = VermelhoAtendimentoReal,
                             fontWeight = FontWeight.Bold
                         )
@@ -497,7 +488,7 @@ fun HemoAtendimentoScreen(
                             "observacaoTriagem"
                         )?.let {
                             Text(
-                                text = "Observação da triagem: $it",
+                                "Observação da triagem: $it",
                                 color = CinzaAtendimentoReal
                             )
                         }
@@ -507,7 +498,7 @@ fun HemoAtendimentoScreen(
                             "motivoEncerramento"
                         )?.let {
                             Text(
-                                text = "Motivo do encerramento: $it",
+                                "Motivo do encerramento: $it",
                                 color = CinzaAtendimentoReal
                             )
                         }
@@ -517,7 +508,7 @@ fun HemoAtendimentoScreen(
                 SecaoAtendimentoReal("Pré-triagem vinculada à reserva")
 
                 Text(
-                    text = preTriagem.getString("mensagem"),
+                    preTriagem.getString("mensagem"),
                     fontWeight = FontWeight.SemiBold
                 )
 
@@ -526,20 +517,20 @@ fun HemoAtendimentoScreen(
                 if (motivos != null) {
                     for (indice in 0 until motivos.length()) {
                         Text(
-                            text = "• ${motivos.getString(indice)}",
+                            "• ${motivos.getString(indice)}",
                             color = CinzaAtendimentoReal
                         )
                     }
                 }
 
                 Text(
-                    text = preTriagem.getString("aviso"),
+                    preTriagem.getString("aviso"),
                     color = CinzaAtendimentoReal,
                     fontSize = 13.sp
                 )
 
                 Text(
-                    text = "Peso informado: ${
+                    "Peso informado: ${
                         textoOpcionalAtendimento(respostas, "pesoKg")
                             ?: "Não informado"
                     } kg"
@@ -574,7 +565,7 @@ fun HemoAtendimentoScreen(
                     }
 
                     Text(
-                        text = "$titulo: $resposta",
+                        "$titulo: $resposta",
                         color = CinzaAtendimentoReal,
                         fontSize = 14.sp
                     )
@@ -585,16 +576,15 @@ fun HemoAtendimentoScreen(
                     "observacoes"
                 )?.let {
                     Text(
-                        text = "Observações do doador: $it",
+                        "Observações do doador: $it",
                         color = CinzaAtendimentoReal
                     )
                 }
 
-                if (status == "AGENDADO") {
+                if (status == "AGENDADO" && acesso.checkin) {
                     SecaoAtendimentoReal("Check-in pendente")
-
                     Text(
-                        text = "Registre a chegada pelo QR Code antes " +
+                        "Registre a chegada pelo QR Code antes " +
                                 "de realizar a triagem presencial.",
                         color = CinzaAtendimentoReal
                     )
@@ -611,11 +601,11 @@ fun HemoAtendimentoScreen(
                     }
                 }
 
-                if (status == "EM_ATENDIMENTO") {
+                if (status == "EM_ATENDIMENTO" && acesso.triagem) {
                     SecaoAtendimentoReal("Avaliação presencial")
 
                     Text(
-                        text = "Registre o resultado definido pela equipe " +
+                        "Registre o resultado definido pela equipe " +
                                 "após a avaliação presencial.",
                         color = CinzaAtendimentoReal
                     )
@@ -626,7 +616,9 @@ fun HemoAtendimentoScreen(
                             observacaoTriagem = it.take(500)
                         },
                         enabled = podeAlterar,
-                        label = { Text("Observação ou orientação") },
+                        label = {
+                            Text("Observação ou orientação")
+                        },
                         supportingText = {
                             Text("${observacaoTriagem.length}/500")
                         },
@@ -656,13 +648,13 @@ fun HemoAtendimentoScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            text = "Registrar resultado não apto",
+                            "Registrar resultado não apto",
                             color = VermelhoAtendimentoReal
                         )
                     }
 
                     Text(
-                        text = "Para o resultado não apto, informe a " +
+                        "Para o resultado não apto, informe a " +
                                 "orientação no campo acima.",
                         color = CinzaAtendimentoReal,
                         fontSize = 13.sp
@@ -670,6 +662,7 @@ fun HemoAtendimentoScreen(
                 }
 
                 if (
+                    acesso.triagem &&
                     status in setOf(
                         "EM_ATENDIMENTO",
                         "APROVADO_TRIAGEM"
@@ -678,7 +671,7 @@ fun HemoAtendimentoScreen(
                     SecaoAtendimentoReal("Regra de intervalo")
 
                     Text(
-                        text = "Selecione a regra aplicável ao doador, " +
+                        "Selecione a regra aplicável ao doador, " +
                                 "conforme a avaliação da equipe. Não há " +
                                 "seleção automática.",
                         color = CinzaAtendimentoReal
@@ -709,7 +702,7 @@ fun HemoAtendimentoScreen(
                             )
 
                             Text(
-                                text = titulo,
+                                titulo,
                                 modifier = Modifier.weight(1f),
                                 fontSize = 14.sp
                             )
@@ -729,23 +722,22 @@ fun HemoAtendimentoScreen(
 
                     intervalo?.let { resultado ->
                         Text(
-                            text = resultado.getString("mensagem"),
+                            resultado.getString("mensagem"),
                             fontWeight = FontWeight.SemiBold
                         )
-
                         Text(
-                            text = resultado.getString("aviso"),
+                            resultado.getString("aviso"),
                             color = CinzaAtendimentoReal,
                             fontSize = 13.sp
                         )
                     }
                 }
 
-                if (status == "APROVADO_TRIAGEM") {
+                if (status == "APROVADO_TRIAGEM" && acesso.triagem) {
                     SecaoAtendimentoReal("Registro da coleta")
 
                     Text(
-                        text = "Registre somente após a realização da " +
+                        "Registre somente após a realização da " +
                                 "coleta e a confirmação do tipo sanguíneo " +
                                 "pela equipe.",
                         color = CinzaAtendimentoReal
@@ -779,7 +771,9 @@ fun HemoAtendimentoScreen(
                             observacoesColeta = it.take(500)
                         },
                         enabled = podeAlterar,
-                        label = { Text("Observações da coleta — opcional") },
+                        label = {
+                            Text("Observações da coleta — opcional")
+                        },
                         supportingText = {
                             Text("${observacoesColeta.length}/500")
                         },
@@ -787,15 +781,15 @@ fun HemoAtendimentoScreen(
                         minLines = 3
                     )
 
-                    val intervaloPermite = intervalo
-                        ?.optString("situacao") in setOf(
-                        "SEM_DOACOES_REGISTRADAS",
-                        "INTERVALO_CUMPRIDO"
-                    )
+                    val intervaloPermite =
+                        intervalo?.optString("situacao") in setOf(
+                            "SEM_DOACOES_REGISTRADAS",
+                            "INTERVALO_CUMPRIDO"
+                        )
 
                     if (!intervaloPermite) {
                         Text(
-                            text = "Salve a regra e confira o intervalo " +
+                            "Salve a regra e confira o intervalo " +
                                     "antes de registrar a doação.",
                             color = CinzaAtendimentoReal,
                             fontSize = 13.sp
@@ -819,6 +813,7 @@ fun HemoAtendimentoScreen(
                 }
 
                 if (
+                    acesso.encerrar &&
                     status in setOf(
                         "EM_ATENDIMENTO",
                         "APROVADO_TRIAGEM"
@@ -832,7 +827,9 @@ fun HemoAtendimentoScreen(
                             motivoEncerramento = it.take(500)
                         },
                         enabled = podeAlterar,
-                        label = { Text("Motivo do encerramento") },
+                        label = {
+                            Text("Motivo do encerramento")
+                        },
                         supportingText = {
                             Text("${motivoEncerramento.length}/500")
                         },
@@ -849,7 +846,7 @@ fun HemoAtendimentoScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
-                            text = "Encerrar atendimento sem coleta",
+                            "Encerrar atendimento sem coleta",
                             color = VermelhoAtendimentoReal
                         )
                     }
@@ -863,14 +860,14 @@ fun HemoAtendimentoScreen(
                     )
                 ) {
                     Text(
-                        text = "Este atendimento não possui etapas " +
+                        "Este atendimento não possui etapas " +
                                 "pendentes de triagem ou coleta.",
                         color = CinzaAtendimentoReal
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(Modifier.height(24.dp))
         }
     }
 
@@ -880,16 +877,12 @@ fun HemoAtendimentoScreen(
         val titulo = when (acao) {
             AcaoAtendimentoReal.APROVAR ->
                 "Confirmar aprovação na triagem?"
-
             AcaoAtendimentoReal.NAO_APTO ->
                 "Confirmar resultado não apto?"
-
             AcaoAtendimentoReal.INTERVALO ->
                 "Salvar regra de intervalo?"
-
             AcaoAtendimentoReal.DOACAO ->
                 "Confirmar doação realizada?"
-
             AcaoAtendimentoReal.SEM_COLETA ->
                 "Encerrar sem coleta?"
         }
@@ -905,11 +898,9 @@ fun HemoAtendimentoScreen(
                 if (
                     regraSelecionada == "DOIS_MESES_QUATRO_DOACOES"
                 ) {
-                    "Regra selecionada: 2 meses e até 4 doações " +
-                            "em 12 meses."
+                    "Regra selecionada: 2 meses e até 4 doações em 12 meses."
                 } else {
-                    "Regra selecionada: 3 meses e até 3 doações " +
-                            "em 12 meses."
+                    "Regra selecionada: 3 meses e até 3 doações em 12 meses."
                 }
 
             AcaoAtendimentoReal.DOACAO ->
@@ -935,7 +926,7 @@ fun HemoAtendimentoScreen(
                     enabled = !ocupado && !exigeConferencia
                 ) {
                     Text(
-                        text = "Confirmar",
+                        "Confirmar",
                         color = VermelhoAtendimentoReal
                     )
                 }
@@ -956,9 +947,8 @@ private fun SecaoAtendimentoReal(titulo: String) {
     HorizontalDivider(
         modifier = Modifier.padding(top = 8.dp)
     )
-
     Text(
-        text = titulo,
+        titulo,
         fontSize = 18.sp,
         fontWeight = FontWeight.Bold
     )
