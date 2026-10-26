@@ -51,7 +51,8 @@ private val CinzaAgendamento = Color(0xFF64748B)
 fun AgendamentoScreen(
     onNavigateBack: () -> Unit = {},
     onNavigateHome: () -> Unit = {},
-    onNavigateToCheckin: () -> Unit = {}
+    onNavigateToCheckin: () -> Unit = {},
+    hemocentroInicial: Long? = null
 ) {
     val usuarioId = SangueApi.usuario?.optLong("id")
     val scope = rememberCoroutineScope()
@@ -63,7 +64,7 @@ fun AgendamentoScreen(
         mutableStateOf<List<CentroAgendamento>>(emptyList())
     }
     var centroId by remember(usuarioId) {
-        mutableStateOf<Long?>(null)
+        mutableStateOf<Long?>(hemocentroInicial)
     }
     var horarios by remember(usuarioId) {
         mutableStateOf<List<HorarioAgendamento>>(emptyList())

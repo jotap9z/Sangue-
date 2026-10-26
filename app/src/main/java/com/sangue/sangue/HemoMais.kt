@@ -27,7 +27,13 @@ private enum class TelaMaisReal {
     EQUIPE,
     HORARIOS,
     PERFIL,
-    MEU_PERFIL
+    MEU_PERFIL,
+    RELATORIOS,
+    NOTIFICACOES,
+    PREFERENCIAS,
+    COORDENADAS,
+    EXCLUSAO,
+    CHAMADOS
 }
 
 private val VermelhoMaisReal = Color(0xFFE21C2C)
@@ -97,6 +103,21 @@ fun HemoMaisScreen(
     }
 
     when (tela) {
+        TelaMaisReal.RELATORIOS -> { RelatorioRealScreen { tela = TelaMaisReal.MENU }; return }
+        TelaMaisReal.COORDENADAS -> { CoordenadasReaisScreen { tela = TelaMaisReal.MENU }; return }
+        TelaMaisReal.PREFERENCIAS -> { PreferenciasReaisScreen({ tela = TelaMaisReal.MENU }, onLogout); return }
+        TelaMaisReal.EXCLUSAO -> { PreferenciasReaisScreen({ tela = TelaMaisReal.MENU }, onLogout, true); return }
+        TelaMaisReal.CHAMADOS -> { HemoChamadosReaisScreen { tela = TelaMaisReal.MENU }; return }
+        TelaMaisReal.NOTIFICACOES -> {
+            var conversa by remember { mutableStateOf<Long?>(null) }
+            if (conversa != null) ConversasReaisScreen(onBack = { conversa = null }, conversaInicial = conversa)
+            else NotificacoesReaisScreen(onBack = { tela = TelaMaisReal.MENU }, onAbrir = { destino, ref ->
+                if (destino == "chat") conversa = ref
+                if (destino == "estoque") onNavigateToEstoque()
+            })
+            return
+        }
+
         TelaMaisReal.MEU_PERFIL -> {
             HemoMeuPerfilScreen(
                 onNavigateBack = {
@@ -143,86 +164,7 @@ fun HemoMaisScreen(
         }
 
         TelaMaisReal.PERFIL -> {
-            BackHandler {
-                tela = TelaMaisReal.MENU
-            }
-
-            Scaffold(
-                containerColor = Color.White,
-                topBar = {
-                    Row(
-                        modifier = Modifier.fillMaxWidth()
-                            .padding(top = 24.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(
-                            onClick = {
-                                tela = TelaMaisReal.MENU
-                            }
-                        ) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.ArrowBack,
-                                "Voltar"
-                            )
-                        }
-                        Text(
-                            "Perfil da instituição",
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            ) { padding ->
-                Column(
-                    modifier = Modifier.fillMaxSize()
-                        .padding(padding)
-                        .verticalScroll(rememberScrollState())
-                        .padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    val dados = instituicao
-
-                    if (dados != null) {
-                        val campos = listOf(
-                            "nome" to "Nome",
-                            "endereco" to "Endereço",
-                            "cidade" to "Cidade",
-                            "estado" to "Estado",
-                            "telefone" to "Telefone",
-                            "cnpj" to "CNPJ",
-                            "cnes" to "CNES",
-                            "emailContato" to "E-mail de contato"
-                        )
-
-                        campos.forEach { (campo, titulo) ->
-                            Text(
-                                titulo,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                if (dados.isNull(campo)) {
-                                    "Não informado"
-                                } else {
-                                    dados.optString(campo)
-                                        .ifBlank { "Não informado" }
-                                }
-                            )
-                        }
-                    } else {
-                        Text(
-                            erro ?: "Carregando instituição...",
-                            color = VermelhoMaisReal
-                        )
-                    }
-
-                    OutlinedButton(
-                        onClick = { atualizar++ },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Atualizar dados")
-                    }
-                }
-            }
+            PerfilInstituicaoScreen(onBack = { tela = TelaMaisReal.MENU; atualizar++ })
             return
         }
 
@@ -333,36 +275,28 @@ fun HemoMaisScreen(
 
             ItemMaisReal(
                 "Perfil da instituição",
-                "Consultar os dados cadastrados",
+                if (acesso.administrador) "Consultar e editar os dados cadastrados" else "Consultar os dados cadastrados",
                 !saindo
             ) {
                 tela = TelaMaisReal.PERFIL
             }
 
-            ItemMaisReal(
-                "Relatórios",
-                "Indicadores e relatórios",
-                !saindo
-            ) {
-                aviso = "Os relatórios desta seção ainda não estão " +
-                        "integrados. Os indicadores disponíveis podem " +
-                        "ser consultados na Home."
+            if (acesso.administrador) {
+                ItemMaisReal("Relatórios", "Consultar indicadores reais", !saindo) { tela = TelaMaisReal.RELATORIOS }
+                ItemMaisReal("Localização da instituição", "Cadastrar coordenadas verificadas", !saindo) { tela = TelaMaisReal.COORDENADAS }
             }
-
-            ItemMaisReal(
-                "Notificações",
-                "Preferências e alertas",
-                !saindo
-            ) {
-                aviso = "As preferências e notificações desta seção " +
-                        "ainda não estão integradas."
+            if (acesso.administrador || acesso.funcao in setOf("ATENDIMENTO", "ESTOQUE")) {
+                ItemMaisReal("Chamados emergenciais", "Consultar chamados e interesses", !saindo) { tela = TelaMaisReal.CHAMADOS }
             }
+            ItemMaisReal("Notificações", "Consultar a caixa interna", !saindo) { tela = TelaMaisReal.NOTIFICACOES }
+            ItemMaisReal("Preferências", "Configurar avisos internos", !saindo) { tela = TelaMaisReal.PREFERENCIAS }
+            ItemMaisReal("Solicitar exclusão da conta", "Registrar solicitação e bloquear o acesso", !saindo) { tela = TelaMaisReal.EXCLUSAO }
 
             OutlinedButton(
                 onClick = { confirmarSaida = true },
                 enabled = !saindo,
                 modifier = Modifier.fillMaxWidth()
-            ) {
+                , shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp), colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = VermelhoOriginal)) {
                 Text(
                     if (saindo) "Saindo..." else "Sair da conta",
                     color = VermelhoMaisReal
@@ -409,7 +343,7 @@ fun HemoMaisScreen(
                     Text("Voltar")
                 }
             }
-        )
+            , shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp), containerColor = androidx.compose.ui.graphics.Color.White)
     }
 
     aviso?.let { mensagem ->
@@ -422,7 +356,7 @@ fun HemoMaisScreen(
                     Text("Entendi")
                 }
             }
-        )
+            , shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp), containerColor = androidx.compose.ui.graphics.Color.White)
     }
 }
 
@@ -433,29 +367,5 @@ private fun ItemMaisReal(
     enabled: Boolean,
     onClick: () -> Unit
 ) {
-    OutlinedCard(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.outlinedCardColors(
-            containerColor = Color.White
-        )
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            Text(
-                titulo,
-                fontSize = 17.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                descricao,
-                color = Color(0xFF64748B),
-                fontSize = 13.sp
-            )
-        }
-    }
+    AcessoOriginal(titulo, descricao, enabled, onClick)
 }

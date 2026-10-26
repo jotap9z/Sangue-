@@ -1,244 +1,214 @@
 package com.sangue.sangue
 
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
-import android.content.Intent
-import android.widget.Toast
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.outlined.Chat
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.outlined.ContentCopy
-import androidx.compose.material.icons.outlined.LocationOn
-import androidx.compose.material.icons.outlined.WaterDrop
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.sp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.core.net.toUri
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EmergenciaScreen(
-    onNavigateBack: () -> Unit = {},
-    onNavigateToAgendar: () -> Unit = {},
-) {
-    val sangueRed = Color(0xFFE21C2C)
-    val textDark = Color(0xFF1E293B)
-    val textGray = Color(0xFF64748B)
-    val borderGray = Color(0xFFF1F5F9)
-    val backgroundGray = Color(0xFFF8FAFC)
-    val alertBg = Color(0xFFFEF2F2)
-
-    val context = LocalContext.current
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val coroutineScope = rememberCoroutineScope()
-    var showShareSheet by remember { mutableStateOf(value = false) }
-
-    Scaffold(
-        containerColor = backgroundGray,
-        topBar = {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 16.dp, start = 16.dp, end = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(onClick = onNavigateBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Voltar", tint = textDark) }
-                Text("Emergência", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = textDark, modifier = Modifier.weight(1f).offset(x = (-24).dp), textAlign = TextAlign.Center)
-            }
-        },
-    ) { paddingValues ->
-        Column(modifier = Modifier.fillMaxSize().padding(paddingValues).verticalScroll(rememberScrollState()).padding(horizontal = 24.dp)) {
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = alertBg), shape = RoundedCornerShape(20.dp)) {
-                Row(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Precisamos de doadores\ncom urgência!", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = sangueRed, lineHeight = 24.sp)
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(buildAnnotatedString { append("Tipo sanguíneo: "); withStyle(SpanStyle(color = sangueRed, fontWeight = FontWeight.Bold)) { append("O-") } }, fontSize = 14.sp, color = textDark)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text("Região: São Paulo - SP", fontSize = 14.sp, color = textDark, fontWeight = FontWeight.SemiBold)
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text("Precisamos de você!", fontSize = 14.sp, color = textDark, fontWeight = FontWeight.SemiBold)
-                    }
-                    Box(modifier = Modifier.size(70.dp), contentAlignment = Alignment.Center) {
-                        Image(painter = painterResource(id = R.drawable.sirene), contentDescription = "Alerta", modifier = Modifier.size(60.dp))
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(20.dp), elevation = CardDefaults.cardElevation(4.dp)) {
-                Column(modifier = Modifier.fillMaxWidth().padding(24.dp)) {
-                    Text("Você está elegível para doar?", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = textDark)
-                    Spacer(modifier = Modifier.height(20.dp))
-                    ItemElegibilidade(Icons.Filled.CheckCircle, Color(0xFF22C55E), "Você pode doar", "")
-                    Spacer(modifier = Modifier.height(16.dp))
-                    ItemElegibilidade(Icons.Outlined.LocationOn, textGray, "A 3,2 km de distância", "")
-                    Spacer(modifier = Modifier.height(16.dp))
-                    ItemElegibilidade(Icons.Outlined.WaterDrop, sangueRed, "Compatível: ", "O-")
-
-                    Spacer(modifier = Modifier.height(32.dp))
-                    Button(onClick = onNavigateToAgendar, modifier = Modifier.fillMaxWidth().height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = sangueRed), shape = RoundedCornerShape(16.dp)) { Text("Quero ajudar agora", fontSize = 16.sp, fontWeight = FontWeight.Bold) }
-                    Spacer(modifier = Modifier.height(16.dp))
-                    OutlinedButton(onClick = { showShareSheet = true }, modifier = Modifier.fillMaxWidth().height(56.dp), border = BorderStroke(1.dp, borderGray), shape = RoundedCornerShape(16.dp)) { Text("Compartilhar", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = textDark) }
-                }
-            }
-            Spacer(modifier = Modifier.height(40.dp))
-        }
-
-        if (showShareSheet) {
-            ModalBottomSheet(onDismissRequest = { showShareSheet = false }, sheetState = sheetState, containerColor = Color.White) {
-                Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Compartilhar chamado", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = textDark, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Start)
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        ShareAppButton(
-                            name = "WhatsApp",
-                            iconRes = R.drawable.whatsappicon,
-                            outerColor = Color(0xFFDCFCE7),
-                        ) {
-                            shareToApp(context, "com.whatsapp")
-                        }
-                        ShareAppButton(
-                            name = "Instagram",
-                            iconRes = R.drawable.instaicon,
-                            outerColor = Color(0xFFFCE7F3),
-                        ) {
-                            shareToApp(context, "com.instagram.android")
-                        }
-                        ShareAppButton(
-                            name = "Mensagens",
-                            imageVector = Icons.AutoMirrored.Outlined.Chat,
-                            iconTint = Color(0xFF3B82F6),
-                            outerColor = Color(0xFFDBEAFE),
-                        ) {
-                            sendSms(context)
-                        }
-                        ShareAppButton(
-                            name = "Copiar link",
-                            imageVector = Icons.Outlined.ContentCopy,
-                            iconTint = Color(0xFF64748B),
-                            outerColor = Color(0xFFF1F5F9),
-                        ) {
-                            copyToClipboard(context)
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(24.dp))
-                    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = alertBg), border = BorderStroke(1.dp, Color(0xFFFECACA)), shape = RoundedCornerShape(16.dp)) {
-                        Text("Doe sangue e ajude a salvar vidas\ncom o Sangue+.", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = textDark, modifier = Modifier.padding(20.dp), lineHeight = 20.sp)
-                    }
-
-                    Spacer(modifier = Modifier.height(24.dp))
-                    TextButton(onClick = { coroutineScope.launch { sheetState.hide() }.invokeOnCompletion { showShareSheet = false } }, modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
-                        Text("Cancelar", color = textGray, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-        }
-    }
+fun EmergenciaScreen(onNavigateBack: () -> Unit = {}, onNavigateToAgendar: () -> Unit = {}, onAgendarCentro: (Long) -> Unit = { onNavigateToAgendar() }, chamadoInicial: Long? = null) {
+    ChamadosReaisScreen(false, onNavigateBack, onAgendarCentro, chamadoInicial)
 }
 
 @Composable
-fun ItemElegibilidade(icone: ImageVector, corIcone: Color, texto: String, destaque: String) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(imageVector = icone, contentDescription = null, tint = corIcone, modifier = Modifier.size(24.dp))
-        Spacer(modifier = Modifier.width(12.dp))
-        Text(
-            buildAnnotatedString {
-                append(texto)
-                if (destaque.isNotEmpty()) {
-                    withStyle(SpanStyle(color = Color(0xFFE21C2C), fontWeight = FontWeight.Bold)) {
-                        append(destaque)
+fun HemoChamadosReaisScreen(onBack: () -> Unit) { ChamadosReaisScreen(true, onBack, {}) }
+
+@Composable
+private fun ChamadosReaisScreen(institucional: Boolean, onBack: () -> Unit, onAgendar: (Long) -> Unit, chamadoInicial: Long? = null) {
+    val scope = rememberCoroutineScope()
+    val acesso = LocalAcessoHemocentro.current
+    var itens by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
+    var selecionado by remember { mutableStateOf<JSONObject?>(null) }
+    var formulario by remember { mutableStateOf(false) }
+    var titulo by remember { mutableStateOf("") }
+    var tipo by remember { mutableStateOf("O+") }
+    var urgencia by remember { mutableStateOf("ALTA") }
+    var meta by remember { mutableStateOf("") }
+    var texto by remember { mutableStateOf("") }
+    var motivo by remember { mutableStateOf("") }
+    var encerrar by remember { mutableStateOf(false) }
+    var ocupado by remember { mutableStateOf(true) }
+    var erro by remember { mutableStateOf<String?>(null) }
+    var mensagem by remember { mutableStateOf<String?>(null) }
+    var incerto by remember { mutableStateOf(false) }
+    var atualizar by remember { mutableStateOf(0) }
+    var pagina by remember { mutableStateOf(0) }
+    var totalPaginas by remember { mutableStateOf(0) }
+    val base = if (institucional) "/api/hemocentros/me/chamados" else "/api/chamados"
+    LaunchedEffect(atualizar, pagina) {
+        ocupado = true
+        try {
+            val r = SangueApi.objeto("GET", "$base?pagina=$pagina&tamanho=20", autenticado = institucional)
+            val array = r.getJSONArray("itens")
+            itens = (0 until array.length()).map { if (institucional) array.getJSONObject(it).getJSONObject("chamado") else array.getJSONObject(it) }
+            totalPaginas = r.getInt("totalPaginas")
+            erro = null
+        } catch (e: CancellationException) { throw e } catch (e: Exception) { erro = e.message; itens = emptyList() } finally { ocupado = false }
+    }
+    LaunchedEffect(chamadoInicial) {
+        if (chamadoInicial != null) {
+            try { selecionado = SangueApi.objeto("GET", "/api/chamados/$chamadoInicial", autenticado = false) }
+            catch (e: CancellationException) { throw e } catch (e: Exception) { erro = e.message }
+        }
+    }
+    fun preparar(c: JSONObject?) {
+        titulo = c?.optString("titulo").orEmpty()
+        tipo = c?.optString("tipoSanguineo") ?: "O+"
+        urgencia = c?.optString("urgencia") ?: "ALTA"
+        meta = c?.optInt("metaDoadores")?.toString().orEmpty()
+        texto = c?.optString("mensagem").orEmpty()
+        formulario = true
+        incerto = false
+        erro = null
+    }
+    val c = selecionado
+    TelaRecurso(if (institucional) "Chamados da instituição" else "Chamados emergenciais", {
+        if (!ocupado) {
+            if (formulario) { formulario = false; incerto = false; atualizar++ }
+            else if (c != null) selecionado = null else onBack()
+        }
+    }) {
+        if (ocupado) LinearProgressIndicator(Modifier.fillMaxWidth())
+        ErroRecurso(erro)
+        mensagem?.let { Text(it) }
+        if (formulario) {
+            Text(if (c == null) "Novo chamado" else "Editar chamado #${c.getLong("id")}", fontWeight = FontWeight.Bold)
+            OutlinedTextField(titulo, { titulo = it.take(150) }, label = { Text("Título") }, enabled = !ocupado && !incerto, modifier = Modifier.fillMaxWidth(), shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+            Text("Tipo sanguíneo")
+            listOf(listOf("O+", "O-", "A+", "A-"), listOf("B+", "B-", "AB+", "AB-")).forEach { tipos -> Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) { tipos.forEach { t -> FilterChip(selected = tipo == t, onClick = { tipo = t }, label = { Text(t) }, enabled = !ocupado && !incerto) } } }
+            Text("Urgência")
+            listOf("BAIXA", "MEDIA", "ALTA", "CRITICA").forEach { nivel -> FilterChip(selected = urgencia == nivel, onClick = { urgencia = nivel }, label = { Text(nivel) }, enabled = !ocupado && !incerto) }
+            OutlinedTextField(meta, { meta = it }, label = { Text("Meta de doadores") }, enabled = !ocupado && !incerto, shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+            OutlinedTextField(texto, { texto = it.take(2000) }, label = { Text("Mensagem") }, enabled = !ocupado && !incerto, modifier = Modifier.fillMaxWidth(), shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+            Button(enabled = !ocupado && !incerto && acesso.emitirChamado, onClick = {
+                val quantidade = meta.toIntOrNull()
+                if (quantidade == null || quantidade < 1 || texto.isBlank() || titulo.isBlank()) erro = "Preencha título, mensagem e meta positiva."
+                else {
+                    ocupado = true
+                    scope.launch {
+                        try {
+                            val corpo = JSONObject().put("tipoSanguineo", tipo).put("urgencia", urgencia).put("metaDoadores", quantidade).put("mensagem", texto).put("titulo", titulo)
+                            if (c != null) corpo.put("versao", c.getLong("versao"))
+                            val r = SangueApi.objeto(if (c == null) "POST" else "PUT", if (c == null) base else "$base/${c.getLong("id")}", corpo)
+                            selecionado = r.getJSONObject("chamado")
+                            formulario = false
+                            mensagem = "Chamado salvo."
+                            erro = null
+                            atualizar++
+                        } catch (e: CancellationException) { throw e } catch (e: Exception) {
+                            erro = e.message
+                            incerto = e !is ApiException || e.status == 0 || e.status >= 500 || e.status == 409
+                        } finally { ocupado = false }
                     }
                 }
-            },
-            fontSize = 14.sp,
-            color = Color(0xFF1E293B),
-            fontWeight = FontWeight.SemiBold,
-        )
+            }, colors = ButtonDefaults.buttonColors(containerColor = VermelhoRecurso), shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)) { Text("Salvar chamado") }
+            if (incerto) Text("O resultado não pôde ser confirmado ou houve conflito. Volte e consulte o chamado antes de tentar outra alteração.")
+        } else if (c != null) {
+            CartaoOriginal(destaque = true) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Image(painterResource(R.drawable.sirene), contentDescription = null, modifier = Modifier.size(56.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(c.getString("titulo"), fontWeight = FontWeight.Bold, fontSize = 20.sp, color = VermelhoOriginal)
+                        Text("Tipo ${c.getString("tipoSanguineo")}", fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, color = VermelhoOriginal)
+                    }
+                }
+                Text(c.getString("nomeHemocentro"))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SeloOriginal(c.getString("urgencia"))
+                    SeloOriginal(c.getString("status"), CinzaOriginal)
+                }
+                Text(c.getString("mensagem"))
+                Text("Interesses ativos: ${c.getLong("respostasAtivas")} / meta ${c.getInt("metaDoadores")}")
+                Text("O interesse não confirma reserva, aptidão ou doação. Doações só são registradas após a coleta presencial.")
+            }
+            if (institucional) {
+                if (acesso.emitirChamado && c.getString("status") == "ATIVO") {
+                    OutlinedButton(enabled = !ocupado, onClick = { preparar(c) }, shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp), colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = VermelhoOriginal)) { Text("Editar") }
+                    OutlinedTextField(motivo, { motivo = it.take(500) }, label = { Text("Motivo do encerramento") }, enabled = !ocupado, shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+                    Button(enabled = !ocupado && motivo.trim().length >= 3, onClick = { encerrar = true }, shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp), colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = VermelhoOriginal, contentColor = androidx.compose.ui.graphics.Color.White)) { Text("Encerrar chamado") }
+                }
+                InteressadosChamadoReal(c.getLong("id"))
+            } else if (c.getString("status") == "ATIVO") {
+                Button(enabled = !ocupado, onClick = {
+                    ocupado = true
+                    scope.launch {
+                        try { SangueApi.objeto("POST", "/api/doadores/me/chamados/${c.getLong("id")}/responder"); mensagem = "Interesse registrado. Escolha um horário para agendar."; erro = null }
+                        catch (e: CancellationException) { throw e } catch (e: Exception) { erro = e.message } finally { ocupado = false }
+                    }
+                }, colors = ButtonDefaults.buttonColors(containerColor = VermelhoRecurso), shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)) { Text("Registrar interesse") }
+                OutlinedButton(enabled = !ocupado, onClick = {
+                    ocupado = true
+                    scope.launch {
+                        try { SangueApi.objeto("DELETE", "/api/doadores/me/chamados/${c.getLong("id")}/resposta"); mensagem = "Interesse retirado."; erro = null }
+                        catch (e: CancellationException) { throw e } catch (e: Exception) { erro = e.message } finally { ocupado = false }
+                    }
+                }, shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp), colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = VermelhoOriginal)) { Text("Retirar meu interesse") }
+                Button(onClick = { onAgendar(c.getLong("hemocentroId")) }, enabled = !ocupado, shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp), colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = VermelhoOriginal, contentColor = androidx.compose.ui.graphics.Color.White)) { Text("Agendar neste hemocentro") }
+            }
+        } else {
+            TextButton(enabled = !ocupado, onClick = { atualizar++ }) { Text("Atualizar") }
+            if (institucional && acesso.emitirChamado) Button(enabled = !ocupado, onClick = { preparar(null) }, colors = ButtonDefaults.buttonColors(containerColor = VermelhoRecurso), shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)) { Text("Criar chamado") }
+            if (!ocupado && itens.isEmpty()) Text("Nenhum chamado encontrado.")
+            itens.forEach { item -> CartaoOriginal(destaque = item.optString("urgencia") == "CRITICA") {
+                Text(item.getString("titulo"), fontWeight = FontWeight.Bold)
+                Text("${item.getString("nomeHemocentro")} — ${item.getString("tipoSanguineo")}")
+                Text("${item.getString("urgencia")} • ${item.getString("status")}")
+                TextButton(enabled = !ocupado, onClick = { selecionado = item; mensagem = null; erro = null }) { Text("Ver detalhes", color = VermelhoRecurso) }
+            } }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(enabled = !ocupado && pagina > 0, onClick = { pagina-- }) { Text("Anterior") }
+                Text("Página ${pagina + 1}")
+                TextButton(enabled = !ocupado && pagina + 1 < totalPaginas, onClick = { pagina++ }) { Text("Próxima") }
+            }
+        }
     }
+    if (encerrar && c != null) AlertDialog(onDismissRequest = { encerrar = false }, title = { Text("Encerrar chamado?") }, text = { Text("O chamado deixará de receber novos interesses.") }, confirmButton = { TextButton(onClick = {
+        encerrar = false
+        ocupado = true
+        scope.launch {
+            try {
+                selecionado = SangueApi.objeto("POST", "$base/${c.getLong("id")}/encerrar", JSONObject().put("motivo", motivo.trim()).put("versao", c.getLong("versao"))).getJSONObject("chamado")
+                mensagem = "Chamado encerrado."
+                erro = null
+                atualizar++
+            } catch (e: CancellationException) { throw e } catch (e: Exception) { erro = e.message; selecionado = null; atualizar++ } finally { ocupado = false }
+        }
+    }) { Text("Confirmar") } }, dismissButton = { TextButton(onClick = { encerrar = false }) { Text("Cancelar") } }, shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp), containerColor = androidx.compose.ui.graphics.Color.White)
 }
 
 @Composable
-fun ShareAppButton(
-    name: String,
-    iconRes: Int? = null,
-    imageVector: ImageVector? = null,
-    outerColor: Color,
-    iconTint: Color = Color.Unspecified,
-    onClick: () -> Unit,
-) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clickable { onClick() }) {
-        Box(modifier = Modifier.size(60.dp).background(outerColor, CircleShape), contentAlignment = Alignment.Center) {
-            when {
-                iconRes != null -> {
-                    Image(painter = painterResource(id = iconRes), contentDescription = name, modifier = Modifier.size(32.dp))
-                }
-                imageVector != null -> {
-                    Icon(imageVector = imageVector, contentDescription = name, tint = iconTint, modifier = Modifier.size(28.dp))
-                }
-            }
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(text = name, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1E293B))
+private fun InteressadosChamadoReal(id: Long) {
+    var lista by remember(id) { mutableStateOf<List<JSONObject>>(emptyList()) }
+    var erro by remember(id) { mutableStateOf<String?>(null) }
+    var pagina by remember(id) { mutableStateOf(0) }
+    var total by remember(id) { mutableStateOf(0) }
+    var carregando by remember(id) { mutableStateOf(true) }
+    LaunchedEffect(id, pagina) {
+        carregando = true
+        try {
+            val r = SangueApi.objeto("GET", "/api/hemocentros/me/chamados/$id/interessados?pagina=$pagina&tamanho=20")
+            val a = r.getJSONArray("itens")
+            lista = (0 until a.length()).map { a.getJSONObject(it) }
+            total = r.getInt("totalPaginas")
+            erro = null
+        } catch (e: CancellationException) { throw e } catch (e: Exception) { erro = e.message } finally { carregando = false }
     }
-}
-
-private fun shareToApp(context: Context, packageName: String) {
-    val text = "Doe sangue e ajude a salvar vidas com o Sangue+. Precisamos de doadores O- com urgência!"
-    val intent = Intent(Intent.ACTION_SEND).apply {
-        type = "text/plain"
-        putExtra(Intent.EXTRA_TEXT, text)
-        setPackage(packageName)
+    Text("Doadores interessados", fontWeight = FontWeight.Bold)
+    if (carregando) LinearProgressIndicator(Modifier.fillMaxWidth())
+    ErroRecurso(erro)
+    if (!carregando && lista.isEmpty()) Text("Nenhum interesse registrado.")
+    lista.forEach { Text("${it.getString("nome")} • ${it.getString("tipoSanguineoInformado")}") }
+    Row {
+        TextButton(enabled = !carregando && pagina > 0, onClick = { pagina-- }) { Text("Anterior") }
+        TextButton(enabled = !carregando && pagina + 1 < total, onClick = { pagina++ }) { Text("Próxima") }
     }
-    try {
-        context.startActivity(intent)
-    } catch (_: Exception) {
-        context.startActivity(Intent.createChooser(intent, "Compartilhar via"))
-    }
-}
-
-private fun sendSms(context: Context) {
-    val text = "Doe sangue e ajude a salvar vidas com o Sangue+. Precisamos de doadores O- com urgência!"
-    val intent = Intent(Intent.ACTION_VIEW).apply {
-        data = "sms:".toUri()
-        putExtra("sms_body", text)
-    }
-    try {
-        context.startActivity(intent)
-    } catch (_: Exception) {
-        Toast.makeText(context, "App não encontrado", Toast.LENGTH_SHORT).show()
-    }
-}
-private fun copyToClipboard(context: Context) {
-    val text = "Doe sangue e ajude a salvar vidas com o Sangue+. Precisamos de doadores O- com urgência!"
-    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-    clipboard.setPrimaryClip(ClipData.newPlainText("Link", text))
-    Toast.makeText(context, "Copiado!", Toast.LENGTH_SHORT).show()
 }

@@ -341,7 +341,7 @@ fun HemoScannerScreen(
                     colors = ButtonDefaults.buttonColors(
                         containerColor = VermelhoScanner
                     )
-                ) {
+                    , shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)) {
                     Text("Voltar")
                 }
             } else {
@@ -456,7 +456,7 @@ fun HemoScannerScreen(
                         onClick = { consultarReserva() },
                         enabled = !ocupado,
                         modifier = Modifier.fillMaxWidth()
-                    ) {
+                        , shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp), colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = VermelhoOriginal)) {
                         Text(
                             text = "Atualizar situação da reserva",
                             color = VermelhoScanner
@@ -515,7 +515,7 @@ fun HemoScannerScreen(
                         onClick = { novoEscaneamento() },
                         enabled = !ocupado,
                         modifier = Modifier.fillMaxWidth()
-                    ) {
+                        , shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp), colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = VermelhoOriginal)) {
                         Text(
                             text = "Ler outro QR Code",
                             color = VermelhoScanner
@@ -563,7 +563,7 @@ fun HemoScannerScreen(
                                 )
                             },
                             modifier = Modifier.fillMaxWidth()
-                        ) {
+                            , shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp), colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = VermelhoOriginal)) {
                             Text(
                                 text = "Permitir câmera",
                                 color = VermelhoScanner
@@ -594,7 +594,7 @@ fun HemoScannerScreen(
                                 reiniciarCamera++
                             },
                             modifier = Modifier.fillMaxWidth()
-                        ) {
+                            , shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp), colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = VermelhoOriginal)) {
                             Text(
                                 text = "Tentar abrir a câmera novamente",
                                 color = VermelhoScanner
@@ -615,7 +615,7 @@ fun HemoScannerScreen(
                             mostrarCodigoManual = true
                         },
                         modifier = Modifier.fillMaxWidth()
-                    ) {
+                        , shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp), colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = VermelhoOriginal)) {
                         Text(
                             text = "Informar conteúdo do QR Code",
                             color = VermelhoScanner
@@ -674,13 +674,13 @@ fun HemoScannerScreen(
                     ),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
-                )
+                    , shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
 
                 OutlinedButton(
                     onClick = { consultarReserva() },
                     enabled = !ocupado && numeroReserva.isNotBlank(),
                     modifier = Modifier.fillMaxWidth()
-                ) {
+                    , shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp), colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = VermelhoOriginal)) {
                     Text(
                         text = "Consultar reserva",
                         color = VermelhoScanner
@@ -717,7 +717,7 @@ fun HemoScannerScreen(
                         label = { Text("Código completo") },
                         modifier = Modifier.fillMaxWidth(),
                         minLines = 3
-                    )
+                        , shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
                 }
             },
             confirmButton = {
@@ -742,7 +742,7 @@ fun HemoScannerScreen(
                     Text("Voltar")
                 }
             }
-        )
+            , shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp), containerColor = androidx.compose.ui.graphics.Color.White)
     }
 }
 

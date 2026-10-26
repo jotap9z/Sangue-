@@ -55,7 +55,8 @@ private val CinzaCheckin = Color(0xFF64748B)
 @Composable
 fun CheckInScreen(
     onNavigateBack: () -> Unit = {},
-    onNavigateHome: () -> Unit = {}
+    onNavigateHome: () -> Unit = {},
+    agendamentoInicial: Long? = null
 ) {
     val usuarioId = SangueApi.usuario?.optLong("id")
     val scope = rememberCoroutineScope()
@@ -130,14 +131,14 @@ fun CheckInScreen(
                 val inicioPeriodo = hojeCheckin()
                 val fimPeriodo = somarDiasCheckin(inicioPeriodo, 30)
 
-                val resposta = SangueApi.lista(
+                val resposta = if (agendamentoInicial != null) listOf(SangueApi.objeto("GET", "/api/doadores/me/agendamentos/$agendamentoInicial")) else SangueApi.lista(
                     caminho = "/api/doadores/me/agendamentos" +
                             "?de=$inicioPeriodo&ate=$fimPeriodo"
                 )
 
                 reservas = resposta
                     .filter {
-                        it.optString("status") in setOf(
+                        agendamentoInicial != null || it.optString("status") in setOf(
                             "AGENDADO",
                             "EM_ATENDIMENTO",
                             "APROVADO_TRIAGEM"
@@ -420,7 +421,7 @@ fun CheckInScreen(
                 OutlinedButton(
                     onClick = onNavigateHome,
                     modifier = Modifier.fillMaxWidth()
-                ) {
+                    , shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp), colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = VermelhoOriginal)) {
                     Text(
                         text = "Voltar ao início",
                         color = VermelhoCheckin
@@ -625,7 +626,7 @@ fun CheckInScreen(
                             VermelhoCheckin.copy(alpha = 0.4f)
                         ),
                         shape = RoundedCornerShape(14.dp)
-                    ) {
+                        , colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = VermelhoOriginal)) {
                         Text(
                             text = if (cancelando) {
                                 "Cancelando..."
@@ -681,7 +682,7 @@ fun CheckInScreen(
                         },
                         modifier = Modifier.fillMaxWidth(),
                         minLines = 2
-                    )
+                        , shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
                 }
             },
             confirmButton = {
@@ -706,7 +707,7 @@ fun CheckInScreen(
                     )
                 }
             }
-        )
+            , shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp))
     }
 }
 

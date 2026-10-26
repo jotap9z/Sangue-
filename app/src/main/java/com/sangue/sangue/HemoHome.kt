@@ -76,9 +76,7 @@ fun HemoHomeScreen(
 
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    var avisoChamados by remember {
-        mutableStateOf(false)
-    }
+
     var nomeHemocentro by remember(usuarioId, hemocentroId) {
         mutableStateOf<String?>(null)
     }
@@ -588,7 +586,7 @@ fun HemoHomeScreen(
                             icone = Icons.Outlined.WarningAmber,
                             modifier = Modifier.weight(1f)
                         ) {
-                            avisoChamados = true
+                            onNavigateToCriarChamado()
                         }
                     }
                 }
@@ -596,7 +594,7 @@ fun HemoHomeScreen(
 
             if (acesso.emitirChamado) {
                 Button(
-                    onClick = { avisoChamados = true },
+                    onClick = { onNavigateToCriarChamado() },
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = 56.dp),
@@ -616,24 +614,7 @@ fun HemoHomeScreen(
         }
     }
 
-    if (avisoChamados) {
-        AlertDialog(
-            onDismissRequest = { avisoChamados = false },
-            title = { Text("Chamados emergenciais") },
-            text = {
-                Text(
-                    "A criação de chamados ainda não está disponível no aplicativo."
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = { avisoChamados = false }
-                ) {
-                    Text("Entendi")
-                }
-            }
-        )
-    }
+
 }
 
 @Composable

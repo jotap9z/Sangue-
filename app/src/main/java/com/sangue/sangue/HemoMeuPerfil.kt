@@ -331,7 +331,7 @@ fun HemoMeuPerfilScreen(
                     mensagem = null
                     tentativa++
                 }
-            ) {
+                , shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp), colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = VermelhoOriginal)) {
                 Text("Atualizar dados")
             }
 
@@ -356,7 +356,7 @@ fun HemoMeuPerfilScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 16.dp)
-                ) {
+                    , shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp), colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = VermelhoOriginal, contentColor = androidx.compose.ui.graphics.Color.White)) {
                     Text("Voltar ao login")
                 }
             }

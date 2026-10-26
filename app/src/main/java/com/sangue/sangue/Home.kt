@@ -72,7 +72,8 @@ fun HomeScreen(
     onNavigateToHistorico: () -> Unit = {},
     onNavigateToPerfil: () -> Unit = {},
     onNavigateToEstoque: () -> Unit = {},
-    onNavigateToHemocentros: () -> Unit = {}
+    onNavigateToHemocentros: () -> Unit = {},
+    onAbrirNotificacao: (String, Long?) -> Unit = { _, _ -> }
 ) {
     val sangueRed = Color(0xFFE21C2C)
     val textDark = Color(0xFF1E293B)
@@ -665,39 +666,11 @@ fun HomeScreen(
                     topEnd = 24.dp
                 )
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(
-                            horizontal = 24.dp,
-                            vertical = 16.dp
-                        )
-                ) {
-                    Text(
-                        "Notificações",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = textDark
+                Box(Modifier.fillMaxWidth().fillMaxHeight(0.85f)) {
+                    NotificacoesReaisScreen(
+                        onBack = { showNotificationsSheet = false },
+                        onAbrir = { destino, ref -> showNotificationsSheet = false; onAbrirNotificacao(destino, ref) }
                     )
-
-                    Text(
-                        "As notificações ainda não estão disponíveis.",
-                        fontSize = 14.sp,
-                        color = textGray,
-                        modifier = Modifier.padding(vertical = 24.dp)
-                    )
-
-                    TextButton(
-                        onClick = {
-                            showNotificationsSheet = false
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            "Fechar",
-                            color = sangueRed
-                        )
-                    }
                 }
             }
         }

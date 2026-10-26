@@ -67,6 +67,7 @@ data class AcessoHemocentro(
             "hemo_scanner" -> checkin
             "hemo_estoque" -> estoque
             "hemo_chat" -> membro
+            "hemo_chamados" -> administrador || funcao in setOf("ESTOQUE", "ATENDIMENTO")
             else -> false
         }
     }
@@ -222,7 +223,7 @@ fun AreaHemocentro(
 
             OutlinedButton(
                 onClick = { tentativa++ }
-            ) {
+                , shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp), colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = VermelhoOriginal)) {
                 Text("Atualizar acesso")
             }
 

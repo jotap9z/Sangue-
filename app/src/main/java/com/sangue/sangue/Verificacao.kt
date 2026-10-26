@@ -10,6 +10,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -87,6 +89,7 @@ fun PossoDoarScreen(
 
     val usuarioId = SangueApi.usuario?.optLong("id")
 
+    var perguntaEdicao by remember(usuarioId) { mutableStateOf<PerguntaPreTriagem?>(null) }
     var peso by remember(usuarioId) {
         mutableStateOf("")
     }
@@ -327,75 +330,11 @@ fun PossoDoarScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             perguntasPreTriagem.forEachIndexed { indice, pergunta ->
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color.White
-                    ),
-                    border = BorderStroke(
-                        1.dp,
-                        Color(0xFFE2E8F0)
-                    ),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp)
-                    ) {
-                        Text(
-                            "${indice + 1}. ${pergunta.texto}",
-                            fontWeight = FontWeight.Bold,
-                            color = textDark,
-                            fontSize = 14.sp,
-                            lineHeight = 21.sp
-                        )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        val respondida = respostas.containsKey(
-                            pergunta.chave
-                        )
-
-                        val resposta = respostas[pergunta.chave]
-
-                        OpcaoRespostaPreTriagem(
-                            texto = "Sim",
-                            selecionada = respondida && resposta == true,
-                            habilitada = !enviando
-                        ) {
-                            respostas = respostas + (
-                                    pergunta.chave to true
-                                    )
-                            erro = null
-                        }
-
-                        OpcaoRespostaPreTriagem(
-                            texto = "Não",
-                            selecionada = respondida && resposta == false,
-                            habilitada = !enviando
-                        ) {
-                            respostas = respostas + (
-                                    pergunta.chave to false
-                                    )
-                            erro = null
-                        }
-
-                        if (pergunta.permiteNaoSeAplica) {
-                            OpcaoRespostaPreTriagem(
-                                texto = "Tenho 18 anos ou mais",
-                                selecionada = respondida &&
-                                        resposta == null,
-                                habilitada = !enviando
-                            ) {
-                                respostas = respostas + (
-                                        pergunta.chave to null
-                                        )
-                                erro = null
-                            }
-                        }
-                    }
-                }
+                val respondida = respostas.containsKey(pergunta.chave)
+                val valor = respostas[pergunta.chave]
+                val rotulo = if (!respondida) "Toque para responder" else if (valor == null) "Não se aplica" else if (valor) "Sim" else "Não"
+                AcessoOriginal(pergunta.texto, rotulo, enabled = !enviando) { perguntaEdicao = pergunta }
+                Spacer(Modifier.height(12.dp))
             }
 
             OutlinedTextField(
@@ -418,6 +357,21 @@ fun PossoDoarScreen(
             Spacer(modifier = Modifier.height(24.dp))
         }
     }
+    perguntaEdicao?.let { pergunta ->
+        AlertDialog(
+            onDismissRequest = { perguntaEdicao = null },
+            title = { Text(pergunta.texto, fontSize = 18.sp, fontWeight = FontWeight.Bold) },
+            text = { Column {
+                Text("Selecione sua resposta. A avaliação presencial continua necessária.", color = textGray)
+                Spacer(Modifier.height(16.dp))
+                OpcaoRespostaPreTriagem("Sim", respostas.containsKey(pergunta.chave) && respostas[pergunta.chave] == true, !enviando) { respostas = respostas + (pergunta.chave to true); erro = null; perguntaEdicao = null }
+                OpcaoRespostaPreTriagem("Não", respostas.containsKey(pergunta.chave) && respostas[pergunta.chave] == false, !enviando) { respostas = respostas + (pergunta.chave to false); erro = null; perguntaEdicao = null }
+                if (pergunta.permiteNaoSeAplica) OpcaoRespostaPreTriagem("Não se aplica", respostas.containsKey(pergunta.chave) && respostas[pergunta.chave] == null, !enviando) { respostas = respostas + (pergunta.chave to null); erro = null; perguntaEdicao = null }
+            } },
+            confirmButton = { TextButton(onClick = { perguntaEdicao = null }) { Text("Voltar", color = sangueRed) } }
+            , shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp), containerColor = androidx.compose.ui.graphics.Color.White)
+    }
+
 }
 
 @Composable

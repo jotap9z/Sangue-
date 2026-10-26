@@ -298,50 +298,9 @@ fun HemoHorariosScreen(
 
     Scaffold(
         containerColor = Color.White,
-        topBar = {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(
-                        top = 24.dp,
-                        bottom = 12.dp,
-                        start = 12.dp,
-                        end = 12.dp
-                    ),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = onNavigateBack,
-                    enabled = !salvando
-                ) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Voltar"
-                    )
-                }
-
-                Text(
-                    text = "Horários e vagas",
-                    modifier = Modifier.weight(1f),
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold
-                )
-
-                IconButton(
-                    onClick = {
-                        mensagem = null
-                        atualizar++
-                    },
-                    enabled = !ocupado && pendente == null
-                ) {
-                    Icon(
-                        Icons.Outlined.Refresh,
-                        contentDescription = "Atualizar horários",
-                        tint = VermelhoHorarios
-                    )
-                }
-            }
-        }
+        topBar = { CabecalhoOriginal("Horários e vagas", onNavigateBack, !salvando, acao = {
+            IconButton(onClick = { mensagem = null; atualizar++ }, enabled = !ocupado && pendente == null) { Icon(Icons.Outlined.Refresh, "Atualizar horários", tint = VermelhoHorarios) }
+        }) }
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -367,7 +326,7 @@ fun HemoHorariosScreen(
                 placeholder = { Text("Ex.: 25/10/2026") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
-            )
+                , shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
 
             OutlinedButton(
                 onClick = {
@@ -385,7 +344,7 @@ fun HemoHorariosScreen(
                 },
                 enabled = !ocupado && pendente == null,
                 modifier = Modifier.fillMaxWidth()
-            ) {
+                , shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp), colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = VermelhoOriginal)) {
                 Text("Consultar data", color = VermelhoHorarios)
             }
 
@@ -457,7 +416,7 @@ fun HemoHorariosScreen(
                 OutlinedButton(
                     onClick = { atualizar++ },
                     modifier = Modifier.fillMaxWidth()
-                ) {
+                    , shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp), colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = VermelhoOriginal)) {
                     Text("Atualizar horários")
                 }
             }
@@ -488,7 +447,7 @@ fun HemoHorariosScreen(
                 placeholder = { Text("Ex.: 09:30") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
-            )
+                , shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
 
             OutlinedTextField(
                 value = capacidade,
@@ -507,7 +466,7 @@ fun HemoHorariosScreen(
                 ),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
-            )
+                , shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
 
             Button(
                 onClick = { prepararCadastro() },
@@ -606,7 +565,7 @@ fun HemoHorariosScreen(
                             },
                             enabled = podeEditar && futuro,
                             modifier = Modifier.fillMaxWidth()
-                        ) {
+                            , shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp), colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = VermelhoOriginal)) {
                             Text(
                                 text = if (horario.ativo) {
                                     "Desativar novas reservas"
@@ -695,7 +654,7 @@ fun HemoHorariosScreen(
                     Text("Voltar")
                 }
             }
-        )
+            , shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp), containerColor = androidx.compose.ui.graphics.Color.White)
     }
 }
 

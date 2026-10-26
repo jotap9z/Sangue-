@@ -1,6 +1,6 @@
 package com.sangue.sangue
 
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -8,6 +8,7 @@ import androidx.navigation.compose.rememberNavController
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()
+    var centroAgendamentoId by remember { mutableStateOf<Long?>(null) }
 
     fun voltarHomeHemo() {
         navController.navigate("hemo_home") {
@@ -17,6 +18,7 @@ fun AppNavigation() {
     }
 
     fun voltarLogin() {
+        centroAgendamentoId = null
         navController.navigate("landing_page") {
             popUpTo(0)
         }
@@ -26,6 +28,17 @@ fun AppNavigation() {
         navController.navigate("hemo_home") {
             popUpTo("hemo_home")
         }
+    }
+
+    fun abrirNotificacao(destino: String, referencia: Long?) {
+        val rota = when (destino) {
+            "chat" -> referencia?.let { "conversa/$it" } ?: "conversas"
+            "emergencia" -> referencia?.let { "emergencia/$it" } ?: "emergencia"
+            "checkin" -> referencia?.let { "reserva/$it" } ?: "checkin"
+            "historico" -> "historico"
+            else -> "home"
+        }
+        navController.navigate(rota) { launchSingleTop = true }
     }
 
     NavHost(
@@ -66,8 +79,10 @@ fun AppNavigation() {
 
         composable("home") {
             HomeScreen(
+                onAbrirNotificacao = { destino, ref -> abrirNotificacao(destino, ref) },
                 onNavigateToInicio = {},
                 onNavigateToVerificacao = {
+                    centroAgendamentoId = null
                     navController.navigate("posso_doar")
                 },
                 onNavigateToCheckin = {
@@ -116,12 +131,6 @@ fun AppNavigation() {
             )
         }
 
-        composable("conquistas") {
-            ConquistasScreen {
-                navController.popBackStack()
-            }
-        }
-
         composable("posso_doar") {
             PossoDoarScreen(
                 onNavigateToResultado = {
@@ -160,15 +169,18 @@ fun AppNavigation() {
 
         composable("agendamento") {
             AgendamentoScreen(
+                hemocentroInicial = centroAgendamentoId,
                 onNavigateBack = {
                     navController.popBackStack()
                 },
                 onNavigateHome = {
+                    centroAgendamentoId = null
                     navController.navigate("home") {
                         popUpTo("home") { inclusive = true }
                     }
                 },
                 onNavigateToCheckin = {
+                    centroAgendamentoId = null
                     navController.navigate("checkin") {
                         popUpTo("home")
                     }
@@ -178,12 +190,9 @@ fun AppNavigation() {
 
         composable("emergencia") {
             EmergenciaScreen(
-                onNavigateBack = {
-                    navController.popBackStack()
-                }
-            ) {
-                navController.navigate("agendamento")
-            }
+                onNavigateBack = { navController.popBackStack() },
+                onAgendarCentro = { id -> centroAgendamentoId = id; navController.navigate("posso_doar") }
+            )
         }
 
         composable("historico") {
@@ -194,21 +203,38 @@ fun AppNavigation() {
 
         composable("estoque") {
             EstoqueScreen(
-                onNavigateBack = {
-                    navController.popBackStack()
-                }
-            ) {
-                navController.navigate("posso_doar")
-            }
+                onNavigateBack = { navController.popBackStack() },
+                onAgendarCentro = { id -> centroAgendamentoId = id; navController.navigate("posso_doar") }
+            )
         }
-
         composable("hemocentros") {
             HemocentrosScreen(
-                onNavigateBack = {
-                    navController.popBackStack()
+                onNavigateBack = { navController.popBackStack() },
+                onAgendarCentro = { id -> centroAgendamentoId = id; navController.navigate("posso_doar") }
+            )
+        }
+        composable("emergencia/{id}") { entrada ->
+            EmergenciaScreen(
+                onNavigateBack = { navController.popBackStack() },
+                chamadoInicial = entrada.arguments?.getString("id")?.toLongOrNull(),
+                onAgendarCentro = { id -> centroAgendamentoId = id; navController.navigate("posso_doar") }
+            )
+        }
+        composable("conversas") { ConversasReaisScreen(onBack = { navController.popBackStack() }) }
+        composable("conversa/{id}") { entrada ->
+            val id = entrada.arguments?.getString("id")?.toLongOrNull()
+            if (SangueApi.usuario?.optString("tipoUsuario") == "hemocentro") {
+                AreaHemocentro("hemo_chat", { voltarHomeHemo() }, { voltarLogin() }) {
+                    ConversasReaisScreen(onBack = { navController.popBackStack() }, conversaInicial = id)
                 }
-            ) {
-                navController.navigate("posso_doar")
+            } else ConversasReaisScreen(onBack = { navController.popBackStack() }, conversaInicial = id)
+        }
+        composable("reserva/{id}") { entrada ->
+            CheckInScreen(onNavigateBack = { navController.popBackStack() }, onNavigateHome = { navController.navigate("home") }, agendamentoInicial = entrada.arguments?.getString("id")?.toLongOrNull())
+        }
+        composable("hemo_chamados") {
+            AreaHemocentro("hemo_chamados", { voltarHomeHemo() }, { voltarLogin() }) {
+                HemoChamadosReaisScreen { navController.popBackStack() }
             }
         }
 
@@ -233,7 +259,7 @@ fun AppNavigation() {
                         navController.navigate("hemo_mais")
                     },
                     onNavigateToCriarChamado = {
-                        navController.navigate("hemo_estoque")
+                        navController.navigate("hemo_chamados")
                     }
                 )
             }

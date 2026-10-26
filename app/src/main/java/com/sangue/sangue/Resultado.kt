@@ -322,7 +322,7 @@ fun ResultadoScreen(
                     .fillMaxWidth()
                     .height(52.dp),
                 shape = RoundedCornerShape(12.dp)
-            ) {
+                , colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = VermelhoOriginal)) {
                 Text(
                     "Voltar ao questionário",
                     color = sangueRed,

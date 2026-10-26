@@ -359,7 +359,7 @@ fun PerfilMainView(
                     .height(56.dp),
                 border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
                 shape = RoundedCornerShape(16.dp)
-            ) {
+                , colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = VermelhoOriginal)) {
                 Text(
                     "Sair",
                     fontSize = 16.sp,
@@ -825,22 +825,7 @@ fun PerfilCarteiraView(
 fun PerfilNotificacoesView(
     onBack: () -> Unit
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.White)
-    ) {
-        HeaderPerfil("Notificações", onBack)
-
-        Column(modifier = Modifier.padding(24.dp)) {
-            PoliticaItemText(
-                "Recurso em preparação",
-                "As preferências e o envio de notificações ainda " +
-                        "não estão integrados. Nenhuma configuração " +
-                        "de notificação pode ser salva nesta tela."
-            )
-        }
-    }
+    PreferenciasReaisScreen(onBack = onBack, onLogout = {})
 }
 
 @Composable
@@ -848,10 +833,12 @@ fun PerfilPrivacidadeView(
     onBack: () -> Unit,
     onLogout: () -> Unit
 ) {
-    val context = LocalContext.current
-    var mostrarExclusao by remember {
-        mutableStateOf(false)
+    var exclusaoReal by remember { mutableStateOf(false) }
+    if (exclusaoReal) {
+        PreferenciasReaisScreen(onBack = { exclusaoReal = false }, onLogout = onLogout, exclusao = true)
+        return
     }
+    val context = LocalContext.current
 
     Column(
         modifier = Modifier
@@ -896,40 +883,20 @@ fun PerfilPrivacidadeView(
 
             PoliticaItemText(
                 "Preferências de compartilhamento",
-                "O gerenciamento dessas preferências ainda não " +
-                        "está disponível no aplicativo."
+                "Os avisos internos podem ser configurados em Perfil > Notificações. Mensagens são compartilhadas somente com os participantes da conversa e a equipe da instituição."
             )
 
             MenuSubItem(
-                "Excluir conta",
-                "Consultar disponibilidade"
+                "Solicitar exclusão da conta",
+                "Registrar solicitação e bloquear o acesso"
             ) {
-                mostrarExclusao = true
+                exclusaoReal = true
             }
 
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
 
-    if (mostrarExclusao) {
-        AlertDialog(
-            onDismissRequest = { mostrarExclusao = false },
-            title = { Text("Exclusão de conta") },
-            text = {
-                Text(
-                    "A exclusão de conta ainda não foi implementada. " +
-                            "Nenhum dado será removido ao fechar esta mensagem."
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = { mostrarExclusao = false }
-                ) {
-                    Text("Entendi", color = PerfilVermelho)
-                }
-            }
-        )
-    }
 }
 
 @Composable
@@ -1010,10 +977,12 @@ fun PerfilAjudaView(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            OrientacoesDoacao()
+
             OutlinedButton(
                 onClick = onTriagem,
                 modifier = Modifier.fillMaxWidth()
-            ) {
+                , shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp), colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = VermelhoOriginal)) {
                 Text("Abrir triagem", color = PerfilVermelho)
             }
 

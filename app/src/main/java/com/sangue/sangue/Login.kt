@@ -549,9 +549,9 @@ fun AuthScreen(
 
                 Text(
                     titulo,
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = VermelhoAuth
+                    fontSize = if (etapa == EtapaAuthReal.LOGIN) 28.sp else 18.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = if (etapa == EtapaAuthReal.LOGIN) VermelhoAuth else Color(0xFF1E293B)
                 )
             }
         }
@@ -567,75 +567,39 @@ fun AuthScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 when (etapa) {
+                    EtapaAuthReal.DOADOR_DADOS, EtapaAuthReal.DOADOR_TIPO -> PassosOriginais(if (etapa == EtapaAuthReal.DOADOR_DADOS) 1 else 2, listOf("Seus dados", "Tipo sanguíneo"))
+                    EtapaAuthReal.HEMO_DADOS, EtapaAuthReal.HEMO_RESPONSAVEL, EtapaAuthReal.HEMO_REVISAO -> PassosOriginais(
+                        if (etapa == EtapaAuthReal.HEMO_DADOS) 1 else if (etapa == EtapaAuthReal.HEMO_RESPONSAVEL) 2 else 3,
+                        listOf("Instituição", "Responsável", "Verificação"))
+                    else -> Unit
+                }
+                when (etapa) {
                     EtapaAuthReal.LOGIN -> {
                         TituloAuth("Entrar na sua conta")
-
-                        Text(
-                            "Acesse sua conta de doador ou hemocentro.",
-                            color = CinzaAuth
-                        )
-
-                        FormTextField(
-                            label = "E-mail",
-                            placeholder = "Seu e-mail",
-                            value = emailLogin,
-                            enabled = !ocupado,
-                            keyboardType = KeyboardType.Email
-                        ) {
-                            emailLogin = it
+                        Text("Acesse seus agendamentos, histórico e carteira do doador.", color = CinzaAuth, fontSize = 14.sp)
+                        Spacer(Modifier.height(12.dp))
+                        FormTextField("E-mail", "Seu e-mail", value = emailLogin, enabled = !ocupado, keyboardType = KeyboardType.Email, isRequired = true) { emailLogin = it }
+                        FormTextField("Senha", "Sua senha", isPassword = true, value = senhaLogin, enabled = !ocupado, isRequired = true) { senhaLogin = it }
+                        TextButton(onClick = { mostrarRecuperacao = true }, enabled = !ocupado, modifier = Modifier.align(Alignment.End)) {
+                            Text("Esqueci minha senha", color = VermelhoAuth, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
-
-                        FormTextField(
-                            label = "Senha",
-                            placeholder = "Sua senha",
-                            isPassword = true,
-                            value = senhaLogin,
-                            enabled = !ocupado
-                        ) {
-                            senhaLogin = it
+                        BotaoAuth("Entrar", !ocupado) { entrar() }
+                        Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            HorizontalDivider(Modifier.weight(1f), color = Color(0xFFE2E8F0))
+                            Text("ou", Modifier.padding(horizontal = 12.dp), color = CinzaAuth)
+                            HorizontalDivider(Modifier.weight(1f), color = Color(0xFFE2E8F0))
                         }
-
-                        BotaoAuth("Entrar", !ocupado) {
-                            entrar()
+                        BotaoSecundarioAuth("Criar conta", !ocupado) {
+                            senhaLogin = ""; erro = null; etapa = EtapaAuthReal.DOADOR_DADOS
                         }
-
-                        TextButton(
-                            onClick = {
-                                mostrarRecuperacao = true
-                            },
-                            enabled = !ocupado,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(
-                                "Esqueci minha senha",
-                                color = VermelhoAuth
-                            )
+                        Spacer(Modifier.height(8.dp))
+                        CartaoOriginal(destaque = true) {
+                            Text("Você representa um hemocentro?", fontWeight = FontWeight.Bold, color = TextoOriginal)
+                            Text("Entre com sua conta institucional ou cadastre a instituição para gerenciar equipe, estoque e agendamentos.", fontSize = 12.sp, color = CinzaAuth)
+                            BotaoSecundarioAuth("Cadastrar hemocentro", !ocupado) {
+                                senhaLogin = ""; erro = null; etapa = EtapaAuthReal.HEMO_DADOS
+                            }
                         }
-
-                        BotaoSecundarioAuth(
-                            "Criar conta de doador",
-                            !ocupado
-                        ) {
-                            senhaLogin = ""
-                            erro = null
-                            etapa = EtapaAuthReal.DOADOR_DADOS
-                        }
-
-                        BotaoSecundarioAuth(
-                            "Cadastrar hemocentro",
-                            !ocupado
-                        ) {
-                            senhaLogin = ""
-                            erro = null
-                            etapa = EtapaAuthReal.HEMO_DADOS
-                        }
-
-                        Text(
-                            "Para acessar um hemocentro já cadastrado, " +
-                                    "entre com o e-mail e a senha do responsável.",
-                            color = CinzaAuth,
-                            fontSize = 13.sp
-                        )
                     }
 
                     EtapaAuthReal.DOADOR_DADOS -> {
@@ -913,29 +877,7 @@ fun AuthScreen(
     }
 
     if (mostrarRecuperacao) {
-        AlertDialog(
-            onDismissRequest = {
-                mostrarRecuperacao = false
-            },
-            title = {
-                Text("Recuperação de senha")
-            },
-            text = {
-                Text(
-                    "A recuperação de senha ainda não está " +
-                            "disponível pelo aplicativo."
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        mostrarRecuperacao = false
-                    }
-                ) {
-                    Text("Entendi")
-                }
-            }
-        )
+        RecuperacaoRealDialog { mostrarRecuperacao = false }
     }
 }
 
@@ -1308,7 +1250,7 @@ private fun BotaoAuth(
         colors = ButtonDefaults.buttonColors(
             containerColor = VermelhoAuth
         ),
-        shape = RoundedCornerShape(14.dp)
+        shape = RoundedCornerShape(16.dp)
     ) {
         Text(texto, fontWeight = FontWeight.Bold)
     }
@@ -1326,8 +1268,8 @@ private fun BotaoSecundarioAuth(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 54.dp),
-        shape = RoundedCornerShape(14.dp)
-    ) {
+        shape = RoundedCornerShape(16.dp)
+        , colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = VermelhoOriginal)) {
         Text(
             texto,
             color = VermelhoAuth,
@@ -1412,6 +1354,11 @@ fun FormTextField(
     Column(
         modifier = modifier.padding(bottom = 8.dp)
     ) {
+        Row {
+            Text(label, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = CinzaAuth)
+            if (isRequired) Text(" *", color = VermelhoAuth, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        }
+        Spacer(Modifier.height(8.dp))
         OutlinedTextField(
             value = value,
             onValueChange = { novoValor ->
@@ -1433,9 +1380,6 @@ fun FormTextField(
                 }
             },
             enabled = enabled,
-            label = {
-                Text(label + if (isRequired) " *" else "")
-            },
             placeholder = {
                 Text(placeholder)
             },

@@ -450,7 +450,7 @@ fun HistoricoScreen(
                             .fillMaxWidth()
                             .padding(top = 8.dp),
                         shape = RoundedCornerShape(12.dp)
-                    ) {
+                        , colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = VermelhoOriginal)) {
                         Text(
                             "Carregar mais",
                             color = sangueRed

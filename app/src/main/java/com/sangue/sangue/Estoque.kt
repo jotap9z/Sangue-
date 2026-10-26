@@ -1,212 +1,98 @@
 package com.sangue.sangue
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.sp
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-
-// Estrutura de dados para o card de sangue
-data class EstoqueSangue(
-    val tipo: String,
-    val status: String,
-    val cor: Color,
-)
+import kotlinx.coroutines.CancellationException
+import org.json.JSONObject
 
 @Composable
-fun EstoqueScreen(
-    onNavigateBack: () -> Unit = {},
-    onNavigateToAgendar: () -> Unit = {}, // Para o botão "Quero ajudar"
-) {
-    val sangueRed = Color(0xFFE21C2C)
-    val textDark = Color(0xFF1E293B)
-    val textGray = Color(0xFF64748B)
+fun EstoqueScreen(onNavigateBack: () -> Unit = {}, onNavigateToAgendar: () -> Unit = {}, onAgendarCentro: (Long) -> Unit = { onNavigateToAgendar() }) {
+    var centros by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
+    var escolhido by remember { mutableStateOf<JSONObject?>(null) }
+    var ocupado by remember { mutableStateOf(true) }
+    var erro by remember { mutableStateOf<String?>(null) }
+    var atualizar by remember { mutableStateOf(0) }
+    LaunchedEffect(atualizar) {
+        ocupado = true
+        try { centros = SangueApi.lista("/api/hemocentros/buscar", false); erro = null }
+        catch (e: CancellationException) { throw e } catch (e: Exception) { erro = e.message } finally { ocupado = false }
+    }
+    val h = escolhido
+    TelaOriginal("Estoque de sangue", { if (h == null) onNavigateBack() else escolhido = null }, rodape = {
+        if (h != null) RodapeOriginal { BotaoOriginal("Quero ajudar") { onAgendarCentro(h.getLong("id")) } }
+    }) {
+        if (h == null) {
+            if (ocupado) LinearProgressIndicator(Modifier.fillMaxWidth())
+            ErroRecurso(erro)
+            TextButton(enabled = !ocupado, onClick = { atualizar++ }) { Text("Atualizar instituições") }
+            if (!ocupado && centros.isEmpty()) Text("Nenhuma instituição cadastrada.")
+            centros.forEach { centro -> CartaoRecurso {
+                Text(centro.getString("nome"), fontWeight = FontWeight.Bold)
+                Text("${centro.getString("cidade")} — ${centro.getString("estado")}")
+                TextButton(onClick = { escolhido = centro }) { Text("Consultar estoque", color = VermelhoRecurso) }
+            } }
+        } else {
+            CartaoOriginal(destaque = true) { Text(h.getString("nome"), fontWeight = FontWeight.Bold, color = VermelhoOriginal); Text("Consulte as necessidades desta instituição", color = CinzaOriginal) }
+            EstoquePublicoReal(h.getLong("id"))
 
-    // Cores de status
-    val statusNormal = Color(0xFF22C55E) // Verde
-    val statusBaixo = Color(0xFFF59E0B)  // Laranja
-    val statusCritico = Color(0xFFE21C2C) // Vermelho
-    val alertBg = Color(0xFFFEF2F2) // Vermelho super claro para o banner final
-
-    // Lista de dados baseada na imagem
-    val listaEstoque = listOf(
-        EstoqueSangue("O+", "Normal", statusNormal),
-        EstoqueSangue("O-", "Crítico", statusCritico),
-        EstoqueSangue("A+", "Baixo", statusBaixo),
-        EstoqueSangue("A-", "Baixo", statusBaixo),
-        EstoqueSangue("B+", "Normal", statusNormal),
-        EstoqueSangue("B-", "Crítico", statusCritico),
-        EstoqueSangue("AB+", "Normal", statusNormal),
-        EstoqueSangue("AB-", "Baixo", statusBaixo),
-    )
-
-    Scaffold(
-        containerColor = Color.White,
-        topBar = {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 24.dp, bottom = 16.dp, start = 16.dp, end = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(onClick = onNavigateBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Voltar", tint = textDark)
-                }
-                Text(
-                    text = "Estoque de sangue",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = textDark,
-                    modifier = Modifier
-                        .weight(1f)
-                        .offset(x = (-24).dp),
-                    textAlign = TextAlign.Center,
-                )
-            }
-        },
-        bottomBar = {
-            // BOTÃO QUERO AJUDAR
-            Button(
-                onClick = onNavigateToAgendar, // Redireciona para triagem ou agendamento
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp)
-                    .height(56.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = sangueRed),
-                shape = RoundedCornerShape(16.dp),
-            ) {
-                Text("Quero ajudar", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-            }
-        },
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp),
-        ) {
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Subtítulo
-            Text(
-                text = "Veja a situação dos tipos sanguíneos\nnos hemocentros próximos.",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = textGray,
-                lineHeight = 20.sp,
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // ==========================================
-            // GRID DE TIPOS SANGUÍNEOS (2 colunas)
-            // ==========================================
-            listaEstoque.chunked(2).forEach { linha ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
-                    linha.forEach { estoque ->
-                        CardEstoque(
-                            estoque = estoque,
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // ==========================================
-            // BANNER DE ALERTA CRÍTICO
-            // ==========================================
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = alertBg),
-                border = BorderStroke(1.dp, Color(0xFFFECACA)), // Borda levemente vermelha
-                shape = RoundedCornerShape(16.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-            ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Text(
-                        text = "O- e B- estão em nível crítico",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = sangueRed,
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Sua doação pode fazer diferença agora.",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = textGray,
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(40.dp))
         }
     }
 }
 
-// COMPONENTE PARA O CARD DE CADA TIPO SANGUÍNEO
 @Composable
-fun CardEstoque(estoque: EstoqueSangue, modifier: Modifier = Modifier) {
-    val borderGray = Color(0xFFF1F5F9)
-    Card(
-        modifier = modifier.height(90.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.dp, borderGray),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(0.dp),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = estoque.tipo,
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Color(0xFF1E293B),
-                )
-                // Bolinha indicadora de cor
-                Box(
-                    modifier = Modifier
-                        .size(10.dp)
-                        .background(estoque.cor, CircleShape),
-                )
-            }
-
-            Text(
-                text = estoque.status,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                color = estoque.cor,
-            )
+internal fun EstoquePublicoReal(hemocentroId: Long) {
+    var itens by remember(hemocentroId) { mutableStateOf<List<JSONObject>>(emptyList()) }
+    var ocupado by remember(hemocentroId) { mutableStateOf(true) }
+    var erro by remember(hemocentroId) { mutableStateOf<String?>(null) }
+    var atualizar by remember { mutableStateOf(0) }
+    LaunchedEffect(hemocentroId, atualizar) {
+        ocupado = true
+        itens = emptyList()
+        try {
+            val r = SangueApi.objeto("GET", "/api/hemocentros/$hemocentroId/estoque", autenticado = false).getJSONArray("itens")
+            itens = (0 until r.length()).map { r.getJSONObject(it) }
+            erro = null
+        } catch (e: CancellationException) { throw e } catch (e: Exception) { erro = e.message } finally { ocupado = false }
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("Situação do estoque", fontWeight = FontWeight.Bold)
+        val criticos = itens.filter { it.optString("situacao") == "CRITICO" }.map { it.getString("tipoSanguineo") }
+        if (criticos.isNotEmpty()) CartaoOriginal(destaque = true) {
+            Text("Precisamos de você", color = VermelhoOriginal, fontWeight = FontWeight.Bold)
+            Text("Estoque crítico: ${criticos.joinToString(", ")}", color = TextoOriginal)
         }
+        TextButton(enabled = !ocupado, onClick = { atualizar++ }) { Text("Atualizar estoque") }
+        if (ocupado) LinearProgressIndicator(Modifier.fillMaxWidth())
+        ErroRecurso(erro)
+        itens.chunked(2).forEach { par -> Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            par.forEach { i -> Box(Modifier.weight(1f)) { CartaoRecurso {
+                val situacao = i.getString("situacao")
+                val (rotulo, cor) = when (situacao) {
+                    "CRITICO" -> "Crítico" to VermelhoRecurso
+                    "BAIXO" -> "Baixo" to Color(0xFFF59E0B)
+                    "NORMAL" -> "Normal" to Color(0xFF16A34A)
+                    else -> "Não informado" to Color(0xFF64748B)
+                }
+                Text(i.getString("tipoSanguineo"), fontWeight = FontWeight.ExtraBold, fontSize = 26.sp, color = TextoOriginal)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Box(Modifier.size(8.dp).background(cor, CircleShape))
+                    Text(rotulo, color = cor, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                }
+                if (!i.isNull("atualizadoEm")) Text("Atualizado em ${dataHoraRecurso(i.getString("atualizadoEm"))}", fontSize = 11.sp, color = CinzaOriginal)
+            } } }
+            if (par.size == 1) Spacer(Modifier.weight(1f))
+        } }
+        Text("Crítico: abaixo do mínimo. Baixo: abaixo do ideal. Normal: a partir do ideal. Não informado: sem registro de estoque.", color = CinzaOriginal, fontSize = 12.sp)
+        Text("A situação é a última registrada pela instituição. Confirme a disponibilidade para atendimento diretamente com o hemocentro.", color = CinzaOriginal, fontSize = 12.sp)
     }
 }

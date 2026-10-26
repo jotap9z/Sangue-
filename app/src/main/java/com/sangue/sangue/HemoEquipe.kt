@@ -265,47 +265,9 @@ fun HemoEquipeScreen(
 
     Scaffold(
         containerColor = Color.White,
-        topBar = {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(
-                        top = 24.dp,
-                        bottom = 12.dp,
-                        start = 12.dp,
-                        end = 12.dp
-                    ),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = onNavigateBack,
-                    enabled = !processando
-                ) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Voltar"
-                    )
-                }
-
-                Text(
-                    "Equipe e acessos",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f)
-                )
-
-                IconButton(
-                    onClick = { atualizar++ },
-                    enabled = !ocupado
-                ) {
-                    Icon(
-                        Icons.Outlined.Refresh,
-                        contentDescription = "Atualizar equipe",
-                        tint = VermelhoEquipe
-                    )
-                }
-            }
-        }
+        topBar = { CabecalhoOriginal("Equipe e acessos", onNavigateBack, !processando, acao = {
+            IconButton(onClick = { atualizar++ }, enabled = !ocupado) { Icon(Icons.Outlined.Refresh, "Atualizar equipe", tint = VermelhoEquipe) }
+        }) }
     ) { padding ->
         Column(
             modifier = Modifier
@@ -370,7 +332,7 @@ fun HemoEquipeScreen(
                     colors = ButtonDefaults.buttonColors(
                         containerColor = VermelhoEquipe
                     )
-                ) {
+                    , shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)) {
                     Text("Inicializar equipe")
                 }
             }
@@ -455,6 +417,7 @@ fun HemoEquipeScreen(
                             verticalArrangement =
                                 Arrangement.spacedBy(8.dp)
                         ) {
+                            AvatarOriginal(membro.getString("nome"))
                             Text(
                                 membro.getString("nome"),
                                 fontSize = 18.sp,
@@ -509,7 +472,7 @@ fun HemoEquipeScreen(
                                 },
                                 enabled = podeGerenciar,
                                 modifier = Modifier.fillMaxWidth()
-                            ) {
+                                , shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp), colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = VermelhoOriginal)) {
                                 Text("Editar função e permissão")
                             }
 
@@ -520,7 +483,7 @@ fun HemoEquipeScreen(
                                     },
                                     enabled = podeGerenciar,
                                     modifier = Modifier.fillMaxWidth()
-                                ) {
+                                    , shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp), colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = VermelhoOriginal)) {
                                     Text(
                                         if (ativo) {
                                             "Desativar acesso"
@@ -546,7 +509,7 @@ fun HemoEquipeScreen(
                     colors = ButtonDefaults.buttonColors(
                         containerColor = VermelhoEquipe
                     )
-                ) {
+                    , shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)) {
                     Text(
                         if (mostrarFormulario) {
                             "Fechar formulário"
@@ -691,7 +654,7 @@ fun HemoEquipeScreen(
                         },
                         enabled = podeGerenciar,
                         modifier = Modifier.fillMaxWidth()
-                    ) {
+                        , shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp), colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = VermelhoOriginal, contentColor = androidx.compose.ui.graphics.Color.White)) {
                         Text("Gerar convite")
                     }
                 }
@@ -727,7 +690,7 @@ fun HemoEquipeScreen(
                                 readOnly = true,
                                 label = { Text("Código do convite") },
                                 modifier = Modifier.fillMaxWidth()
-                            )
+                                , shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
 
                             Text(
                                 "Guarde o código. Ele só é exibido " +
@@ -766,7 +729,7 @@ fun HemoEquipeScreen(
                                 },
                                 enabled = podeGerenciar,
                                 modifier = Modifier.fillMaxWidth()
-                            ) {
+                                , shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp), colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = VermelhoOriginal, contentColor = androidx.compose.ui.graphics.Color.White)) {
                                 Text("Ativar conta neste aparelho")
                             }
                         }
@@ -823,7 +786,7 @@ fun HemoEquipeScreen(
                                         conviteCancelar = convite
                                     },
                                     enabled = podeGerenciar
-                                ) {
+                                    , shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp), colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = VermelhoOriginal)) {
                                     Text(
                                         "Cancelar convite",
                                         color = VermelhoEquipe
@@ -859,7 +822,7 @@ fun HemoEquipeScreen(
                         enabled = podeGerenciar &&
                                 candidatosPrincipal.isNotEmpty(),
                         modifier = Modifier.fillMaxWidth()
-                    ) {
+                        , shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp), colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = VermelhoOriginal)) {
                         Text("Transferir administração principal")
                     }
                 }
@@ -923,7 +886,7 @@ fun HemoEquipeScreen(
                     Text("Voltar")
                 }
             }
-        )
+            , shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp), containerColor = androidx.compose.ui.graphics.Color.White)
     }
 
     val geradoAtivacao = conviteGerado
@@ -1045,7 +1008,7 @@ fun HemoEquipeScreen(
                     Text("Voltar")
                 }
             }
-        )
+            , shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp), containerColor = androidx.compose.ui.graphics.Color.White)
     }
 
     val editando = membroEdicao
@@ -1140,7 +1103,7 @@ fun HemoEquipeScreen(
                     Text("Voltar")
                 }
             }
-        )
+            , shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp), containerColor = androidx.compose.ui.graphics.Color.White)
     }
 
     val alterandoStatus = membroStatus
@@ -1202,7 +1165,7 @@ fun HemoEquipeScreen(
                     Text("Voltar")
                 }
             }
-        )
+            , shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp), containerColor = androidx.compose.ui.graphics.Color.White)
     }
 
     val cancelandoConvite = conviteCancelar
@@ -1246,7 +1209,7 @@ fun HemoEquipeScreen(
                     Text("Voltar")
                 }
             }
-        )
+            , shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp), containerColor = androidx.compose.ui.graphics.Color.White)
     }
 
     if (mostrarTransferencia) {
@@ -1362,7 +1325,7 @@ fun HemoEquipeScreen(
                     Text("Voltar")
                 }
             }
-        )
+            , shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp), containerColor = androidx.compose.ui.graphics.Color.White)
     }
 }
 
@@ -1386,7 +1349,7 @@ private fun SelecaoEquipe(
                 onClick = { aberto = true },
                 enabled = enabled,
                 modifier = Modifier.fillMaxWidth()
-            ) {
+                , shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp), colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = VermelhoOriginal)) {
                 Text(
                     opcoes.firstOrNull {
                         it.first == valor

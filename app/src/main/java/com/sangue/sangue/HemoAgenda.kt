@@ -294,7 +294,7 @@ fun HemoAgendaScreen(
                             onClick = { mostrarHorarios = true },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(14.dp)
-                        ) {
+                            , colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = VermelhoOriginal)) {
                             Icon(
                                 Icons.Outlined.CalendarToday,
                                 contentDescription = null,

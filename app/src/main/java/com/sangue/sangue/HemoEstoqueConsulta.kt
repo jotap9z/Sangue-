@@ -452,51 +452,9 @@ fun HemoEstoqueConsultaScreen(
 
     Scaffold(
         containerColor = Color.White,
-        topBar = {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(
-                        top = 24.dp,
-                        bottom = 16.dp,
-                        start = 16.dp,
-                        end = 16.dp
-                    ),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = { voltar() },
-                    enabled = !salvando
-                ) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Voltar"
-                    )
-                }
-
-                Text(
-                    text = if (emEdicao) {
-                        "Atualizar estoque"
-                    } else {
-                        "Estoque de sangue"
-                    },
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f)
-                )
-
-                IconButton(
-                    onClick = { atualizar++ },
-                    enabled = !ocupado
-                ) {
-                    Icon(
-                        Icons.Outlined.Refresh,
-                        contentDescription = "Atualizar consulta",
-                        tint = VermelhoEstoqueConsulta
-                    )
-                }
-            }
-        },
+        topBar = { CabecalhoOriginal(if (emEdicao) "Atualizar estoque" else "Estoque de sangue", { voltar() }, !salvando, acao = {
+            IconButton(onClick = { atualizar++ }, enabled = !ocupado) { Icon(Icons.Outlined.Refresh, "Atualizar consulta", tint = VermelhoEstoqueConsulta) }
+        }) },
         bottomBar = {
             if (!emEdicao) {
                 BarraNavegacaoHemo(
@@ -801,7 +759,7 @@ fun HemoEstoqueConsultaScreen(
                         atualizar++
                     },
                     modifier = Modifier.fillMaxWidth()
-                ) {
+                    , shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp), colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = VermelhoOriginal)) {
                     Text("Recarregar dados")
                 }
 
@@ -881,7 +839,7 @@ fun HemoEstoqueConsultaScreen(
                     Text("Voltar")
                 }
             }
-        )
+            , shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp), containerColor = androidx.compose.ui.graphics.Color.White)
     }
 }
 

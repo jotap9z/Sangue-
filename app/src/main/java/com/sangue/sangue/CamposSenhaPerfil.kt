@@ -377,7 +377,7 @@ fun CamposSenhaPerfil(
                     Text("Ir para o login")
                 }
             }
-        )
+            , shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp), containerColor = androidx.compose.ui.graphics.Color.White)
     }
 
     if (resultadoIncerto) {
@@ -426,7 +426,7 @@ fun CamposSenhaPerfil(
                     )
                 }
             }
-        )
+            , shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp), containerColor = androidx.compose.ui.graphics.Color.White)
     }
 }
 

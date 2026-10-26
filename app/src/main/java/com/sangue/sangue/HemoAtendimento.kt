@@ -28,7 +28,9 @@ private enum class AcaoAtendimentoReal {
     NAO_APTO,
     INTERVALO,
     DOACAO,
-    SEM_COLETA
+    SEM_COLETA,
+    CANCELAR,
+    FALTA
 }
 
 @Composable
@@ -138,6 +140,7 @@ fun HemoAtendimentoScreen(
             ?: return
 
         val permiteAcao = when (acao) {
+            AcaoAtendimentoReal.CANCELAR, AcaoAtendimentoReal.FALTA -> statusAtual == "AGENDADO"
             AcaoAtendimentoReal.APROVAR,
             AcaoAtendimentoReal.NAO_APTO ->
                 statusAtual == "EM_ATENDIMENTO"
@@ -154,6 +157,7 @@ fun HemoAtendimentoScreen(
         }
 
         val permiteFuncao = when (acao) {
+            AcaoAtendimentoReal.CANCELAR, AcaoAtendimentoReal.FALTA -> acesso.checkin
             AcaoAtendimentoReal.SEM_COLETA -> acesso.encerrar
             else -> acesso.triagem
         }
@@ -166,6 +170,10 @@ fun HemoAtendimentoScreen(
         val regra = regraSelecionada
         val tipo = tipoSelecionado
 
+        if (acao == AcaoAtendimentoReal.CANCELAR && motivo.length !in 3..250) {
+            erro = "Informe o motivo do cancelamento com 3 a 250 caracteres."
+            return
+        }
         if (
             acao == AcaoAtendimentoReal.NAO_APTO &&
             observacao.isBlank()
@@ -222,6 +230,11 @@ fun HemoAtendimentoScreen(
                     "/api/hemocentros/me/agendamentos/$agendamentoId"
 
                 when (acao) {
+                    AcaoAtendimentoReal.CANCELAR, AcaoAtendimentoReal.FALTA -> {
+                        val caminho = if (acao == AcaoAtendimentoReal.CANCELAR) "cancelar" else "falta"
+                        SangueApi.objeto("POST", "$base/$caminho", if (acao == AcaoAtendimentoReal.CANCELAR) JSONObject().put("motivo", motivo) else null)
+                        mensagem = if (acao == AcaoAtendimentoReal.CANCELAR) "Reserva cancelada pelo hemocentro." else "Ausência registrada."
+                    }
                     AcaoAtendimentoReal.APROVAR,
                     AcaoAtendimentoReal.NAO_APTO -> {
                         val aprovado =
@@ -351,45 +364,9 @@ fun HemoAtendimentoScreen(
 
     Scaffold(
         containerColor = Color.White,
-        topBar = {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(
-                    top = 24.dp,
-                    bottom = 12.dp,
-                    start = 12.dp,
-                    end = 12.dp
-                ),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = onNavigateBack,
-                    enabled = !processando
-                ) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.ArrowBack,
-                        "Voltar"
-                    )
-                }
-
-                Text(
-                    "Atendimento #$agendamentoId",
-                    modifier = Modifier.weight(1f),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp
-                )
-
-                IconButton(
-                    onClick = { atualizar++ },
-                    enabled = !ocupado && acaoPendente == null
-                ) {
-                    Icon(
-                        Icons.Outlined.Refresh,
-                        "Atualizar atendimento",
-                        tint = VermelhoAtendimentoReal
-                    )
-                }
-            }
-        }
+        topBar = { CabecalhoOriginal("Atendimento #$agendamentoId", onNavigateBack, !processando, acao = {
+            IconButton(onClick = { atualizar++ }, enabled = !ocupado && acaoPendente == null) { Icon(Icons.Outlined.Refresh, "Atualizar atendimento", tint = VermelhoAtendimentoReal) }
+        }) }
     ) { paddingValues ->
         Column(
             modifier = Modifier.fillMaxSize()
@@ -434,7 +411,7 @@ fun HemoAtendimentoScreen(
                 OutlinedButton(
                     onClick = { atualizar++ },
                     modifier = Modifier.fillMaxWidth()
-                ) {
+                    , shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp), colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = VermelhoOriginal)) {
                     Text("Atualizar atendimento")
                 }
             }
@@ -451,6 +428,17 @@ fun HemoAtendimentoScreen(
                 val podeAlterar = !ocupado &&
                         !exigeConferencia &&
                         SangueApi.autenticado
+
+                val etapaVisual = when (status) {
+                    "AGENDADO" -> 1
+                    "EM_ATENDIMENTO" -> 2
+                    "APROVADO_TRIAGEM" -> 3
+                    "DOACAO_REALIZADA" -> 4
+                    else -> 0
+                }
+                if (etapaVisual > 0) PassosOriginais(etapaVisual, listOf("Chegada", "Triagem", "Coleta"))
+                SeloOriginal(status.replace('_', ' '))
+
 
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -582,6 +570,13 @@ fun HemoAtendimentoScreen(
                 }
 
                 if (status == "AGENDADO" && acesso.checkin) {
+                    OutlinedTextField(motivoEncerramento, { motivoEncerramento = it.take(250) }, label = { Text("Motivo do cancelamento") }, enabled = podeAlterar, modifier = Modifier.fillMaxWidth(), shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+                    OutlinedButton(enabled = podeAlterar, onClick = { acaoPendente = AcaoAtendimentoReal.CANCELAR }, shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp), colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = VermelhoOriginal)) { Text("Cancelar reserva pela instituição") }
+                    Text("A ausência só pode ser registrada a partir de uma hora após o horário reservado. O servidor verifica o prazo.")
+                    OutlinedButton(enabled = podeAlterar, onClick = { acaoPendente = AcaoAtendimentoReal.FALTA }, shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp), colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = VermelhoOriginal)) { Text("Registrar ausência") }
+                }
+
+                if (status == "AGENDADO" && acesso.checkin) {
                     SecaoAtendimentoReal("Check-in pendente")
                     Text(
                         "Registre a chegada pelo QR Code antes " +
@@ -596,7 +591,7 @@ fun HemoAtendimentoScreen(
                         colors = ButtonDefaults.buttonColors(
                             containerColor = VermelhoAtendimentoReal
                         )
-                    ) {
+                        , shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)) {
                         Text("Escanear check-in")
                     }
                 }
@@ -624,7 +619,7 @@ fun HemoAtendimentoScreen(
                         },
                         modifier = Modifier.fillMaxWidth(),
                         minLines = 3
-                    )
+                        , shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
 
                     Button(
                         onClick = {
@@ -635,7 +630,7 @@ fun HemoAtendimentoScreen(
                         colors = ButtonDefaults.buttonColors(
                             containerColor = VermelhoAtendimentoReal
                         )
-                    ) {
+                        , shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)) {
                         Text("Registrar aprovação na triagem")
                     }
 
@@ -646,7 +641,7 @@ fun HemoAtendimentoScreen(
                         enabled = podeAlterar &&
                                 observacaoTriagem.isNotBlank(),
                         modifier = Modifier.fillMaxWidth()
-                    ) {
+                        , shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp), colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = VermelhoOriginal)) {
                         Text(
                             "Registrar resultado não apto",
                             color = VermelhoAtendimentoReal
@@ -716,7 +711,7 @@ fun HemoAtendimentoScreen(
                         enabled = podeAlterar &&
                                 regraSelecionada.isNotBlank(),
                         modifier = Modifier.fillMaxWidth()
-                    ) {
+                        , shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp), colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = VermelhoOriginal)) {
                         Text("Salvar e conferir intervalo")
                     }
 
@@ -779,7 +774,7 @@ fun HemoAtendimentoScreen(
                         },
                         modifier = Modifier.fillMaxWidth(),
                         minLines = 3
-                    )
+                        , shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
 
                     val intervaloPermite =
                         intervalo?.optString("situacao") in setOf(
@@ -807,7 +802,7 @@ fun HemoAtendimentoScreen(
                         colors = ButtonDefaults.buttonColors(
                             containerColor = VermelhoAtendimentoReal
                         )
-                    ) {
+                        , shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp)) {
                         Text("Registrar doação realizada")
                     }
                 }
@@ -835,7 +830,7 @@ fun HemoAtendimentoScreen(
                         },
                         modifier = Modifier.fillMaxWidth(),
                         minLines = 2
-                    )
+                        , shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
 
                     OutlinedButton(
                         onClick = {
@@ -844,7 +839,7 @@ fun HemoAtendimentoScreen(
                         enabled = podeAlterar &&
                                 motivoEncerramento.trim().length >= 3,
                         modifier = Modifier.fillMaxWidth()
-                    ) {
+                        , shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp), colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(contentColor = VermelhoOriginal)) {
                         Text(
                             "Encerrar atendimento sem coleta",
                             color = VermelhoAtendimentoReal
@@ -875,6 +870,8 @@ fun HemoAtendimentoScreen(
 
     if (acao != null) {
         val titulo = when (acao) {
+            AcaoAtendimentoReal.CANCELAR -> "Cancelar reserva?"
+            AcaoAtendimentoReal.FALTA -> "Registrar ausência?"
             AcaoAtendimentoReal.APROVAR ->
                 "Confirmar aprovação na triagem?"
             AcaoAtendimentoReal.NAO_APTO ->
@@ -888,6 +885,8 @@ fun HemoAtendimentoScreen(
         }
 
         val resumo = when (acao) {
+            AcaoAtendimentoReal.CANCELAR -> "A reserva será cancelada pela instituição. Motivo: ${motivoEncerramento.trim()}"
+            AcaoAtendimentoReal.FALTA -> "Confirme que o doador não compareceu. Esta ação não registra doação."
             AcaoAtendimentoReal.APROVAR ->
                 "A avaliação presencial será registrada como aprovada."
 
@@ -938,7 +937,7 @@ fun HemoAtendimentoScreen(
                     Text("Voltar")
                 }
             }
-        )
+            , shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp), containerColor = androidx.compose.ui.graphics.Color.White)
     }
 }
 
