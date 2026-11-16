@@ -2,6 +2,8 @@
 
 Aplicativo Android nativo em Kotlin e Jetpack Compose. O doador pode consultar hemocentros, agendar uma visita e acompanhar a doação. A equipe do hemocentro usa o app para gerenciar a agenda e registrar o atendimento.
 
+> **Instalação em uma máquina nova:** primeiro, siga o [guia da API](https://github.com/jotap9z/sangue-api/blob/main/README.md) para configurar o PostgreSQL, aplicar os scripts SQL e iniciar o servidor. Com a API rodando, volte a este guia para configurar e executar o app Android.
+
 ## 1. Preparar a máquina
 
 - Instale o **Android Studio** em uma versão compatível com **Android Gradle Plugin 9.3.1**. Se o Studio disser que só aceita AGP 9.0.0, atualize o Studio. Consulte a [tabela oficial de compatibilidade](https://developer.android.com/build/releases/about-agp).
